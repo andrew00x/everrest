@@ -18,21 +18,19 @@ import java.util.List;
  *
  * @author andrew00x
  */
-public interface ObjectModel {
+public interface ObjectModel extends NameBindingAnnotated {
 
     /**
      * @return collections constructor, MAY return empty collection or null if
      * object is singleton. There is no setter for this to add new
-     * ConstructorInjector use
-     * <code>ObjectModel.getConstructorDescriptors().add(ConstructorInjector)</code>
+     * ConstructorInjector use {@code ObjectModel.getConstructorDescriptors().add(ConstructorInjector)}
      */
     List<ConstructorDescriptor> getConstructorDescriptors();
 
     /**
      * @return collections of object fields, MAY return empty collection or null
      * if object is singleton. There is no setter for this to add new
-     * ConstructorInjector use
-     * <code>ObjectModel.getFieldInjectors().add(FieldInjector)</code>
+     * FieldInjector use {@code ObjectModel.getFieldInjectors().add(FieldInjector)}
      */
     List<FieldInjector> getFieldInjectors();
 
@@ -48,11 +46,10 @@ public interface ObjectModel {
     List<String> getProperty(String key);
 
     /**
-     * Optional attributes.
+     * Optional properties.
      *
-     * @return all properties. If there is no any optional attributes then empty
-     * map returned never <code>null</code>
+     * @return all properties. If there is no any optional properties then empty
+     * map returned never {@code null}
      */
     MultivaluedMap<String, String> getProperties();
-
 }

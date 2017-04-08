@@ -14,7 +14,6 @@ import com.google.common.collect.ImmutableMap;
 import com.tngtech.java.junit.dataprovider.DataProvider;
 import com.tngtech.java.junit.dataprovider.DataProviderRunner;
 import com.tngtech.java.junit.dataprovider.UseDataProvider;
-
 import org.everrest.core.impl.BaseTest;
 import org.everrest.core.impl.ContainerResponse;
 import org.junit.Test;
@@ -48,7 +47,6 @@ import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
 import static com.google.common.collect.Sets.newTreeSet;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 @RunWith(DataProviderRunner.class)
 public class MethodParametersInjectionTest extends BaseTest {
@@ -144,7 +142,7 @@ public class MethodParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/g/1", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", UriInfo.class), response.getEntity() instanceof UriInfo);
+        assertEquals(String.format("Expected %s injected", UriInfo.class), "UriInfo", response.getEntity());
     }
 
     @Test
@@ -157,7 +155,7 @@ public class MethodParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/g/2", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", Request.class), response.getEntity() instanceof Request);
+        assertEquals(String.format("Expected %s injected", Request.class), "Request", response.getEntity());
     }
 
     @Test
@@ -170,7 +168,7 @@ public class MethodParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/g/3", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", HttpHeaders.class), response.getEntity() instanceof HttpHeaders);
+        assertEquals(String.format("Expected %s injected", HttpHeaders.class), "HttpHeaders", response.getEntity());
     }
 
     @Test
@@ -183,7 +181,7 @@ public class MethodParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/g/4", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", SecurityContext.class), response.getEntity() instanceof SecurityContext);
+        assertEquals(String.format("Expected %s injected", SecurityContext.class), "SecurityContext", response.getEntity());
     }
 
     @Test
@@ -196,7 +194,7 @@ public class MethodParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/g/5", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", Providers.class), response.getEntity() instanceof Providers);
+        assertEquals(String.format("Expected %s injected", Providers.class), "Providers", response.getEntity());
     }
 
     @Test
@@ -209,7 +207,7 @@ public class MethodParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/g/6", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", Application.class), response.getEntity() instanceof Application);
+        assertEquals(String.format("Expected %s injected", Application.class), "Application", response.getEntity());
     }
 
     @Path("a/{x}")
@@ -565,38 +563,38 @@ public class MethodParametersInjectionTest extends BaseTest {
     public static class ContextParamResource {
         @Path("1")
         @POST
-        public UriInfo m1(@Context UriInfo uriInfo) {
-            return uriInfo;
+        public String m1(@Context UriInfo uriInfo) {
+            return "UriInfo";
         }
 
         @Path("2")
         @POST
-        public Request m2(@Context Request request) {
-            return request;
+        public String m2(@Context Request request) {
+            return "Request";
         }
 
         @Path("3")
         @POST
-        public HttpHeaders m3(@Context HttpHeaders httpHeaders) {
-            return httpHeaders;
+        public String m3(@Context HttpHeaders httpHeaders) {
+            return "HttpHeaders";
         }
 
         @Path("4")
         @POST
-        public SecurityContext m4(@Context SecurityContext securityContext) {
-            return securityContext;
+        public String m4(@Context SecurityContext securityContext) {
+            return "SecurityContext";
         }
 
         @Path("5")
         @POST
-        public Providers m5(@Context Providers providers) {
-            return providers;
+        public String m5(@Context Providers providers) {
+            return "Providers";
         }
 
         @Path("6")
         @POST
-        public Application m6(@Context Application application) {
-            return application;
+        public String m6(@Context Application application) {
+            return "Application";
         }
     }
 }

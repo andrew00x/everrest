@@ -31,7 +31,7 @@ public class JsonParser {
     /** Stack of JSON tokens. */
     private final JsonStack<JsonToken> stack;
 
-    /** @see {@link java.io.PushbackReader}. */
+    /** @see java.io.PushbackReader */
     private PushbackReader pushbackReader;
 
     public JsonParser() {

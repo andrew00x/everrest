@@ -21,4 +21,5 @@ import javax.ws.rs.ext.MessageBodyWriter;
  * @author andrew00x
  */
 public interface EntityProvider<T> extends MessageBodyReader<T>, MessageBodyWriter<T> {
+    int EMBEDDED_ENTITY_PROVIDER_PRIORITY = 0;
 }

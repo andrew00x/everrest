@@ -10,13 +10,15 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.impl.async.AsynchronousJobPool;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.impl.async.AsynchronousJobService;
-import org.everrest.core.impl.async.AsynchronousProcessListWriter;
+import org.everrest.core.impl.provider.ServerEmbeddedProvidersFeature;
 import org.everrest.core.tools.DependencySupplierImpl;
 import org.everrest.core.tools.ResourceLauncher;
 import org.junit.After;
 import org.junit.Before;
+
+import static javax.ws.rs.RuntimeType.SERVER;
 
 /**
  * @author andrew00x
@@ -24,32 +26,22 @@ import org.junit.Before;
 public abstract class BaseTest {
     protected DependencySupplierImpl dependencySupplier;
     protected EverrestProcessor      processor;
+    protected ProviderBinder providers;
     protected ResourceLauncher       launcher;
-    protected AsynchronousJobPool    asynchronousPool;
 
     @Before
     public void setUp() throws Exception {
         ResourceBinderImpl resources = new ResourceBinderImpl();
-        resetProviderBinder();
-        ProviderBinder providers = new ApplicationProviderBinder();
-        asynchronousPool = new AsynchronousJobPool(new EverrestConfiguration());
-        providers.addContextResolver(asynchronousPool);
-        providers.addMessageBodyWriter(new AsynchronousProcessListWriter());
+        providers = new DefaultProviderBinder(SERVER, new ServerConfigurationProperties());
+        providers.register(new ServerEmbeddedProvidersFeature());
         resources.addResource("/async", AsynchronousJobService.class, null);
         dependencySupplier = new DependencySupplierImpl();
-        processor = new EverrestProcessor(new EverrestConfiguration(), dependencySupplier, new RequestHandlerImpl(new RequestDispatcher(resources), providers), null);
+        processor = new EverrestProcessor(new ServerConfigurationProperties(), dependencySupplier, new RequestHandlerImpl(new RequestDispatcher(resources), providers), resources, providers, null);
         launcher = new ResourceLauncher(processor);
-    }
-
-    private void resetProviderBinder() {
-        ProviderBinder providerBinder = new ProviderBinder();
-        providerBinder.init();
-        ProviderBinder.setInstance(providerBinder);
     }
 
     @After
     public void tearDown() throws Exception {
-        asynchronousPool.stop();
         processor.stop();
     }
 }

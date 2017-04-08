@@ -12,7 +12,6 @@ package org.everrest.core.impl.integration;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
-
 import org.apache.commons.fileupload.FileItem;
 import org.everrest.core.impl.BaseTest;
 import org.everrest.core.impl.ContainerResponse;
@@ -232,7 +231,7 @@ public class MultipartTest extends BaseTest {
         ByteArrayContainerResponseWriter writer = new ByteArrayContainerResponseWriter();
         ContainerResponse response = launcher.service("GET", "/4", "", null, null, writer, null);
         assertEquals(200, response.getStatus());
-        assertEquals(FORM_DATA, new String(writer.getBody()));
+        assertEquals(FORM_DATA, writer.getBodyAsString());
     }
 
     private static InputItem createInputItem(String name, String fileName, MediaType mediaType, String body) throws IOException {

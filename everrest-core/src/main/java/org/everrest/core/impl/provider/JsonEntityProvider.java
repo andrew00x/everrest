@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.activation.DataSource;
+import javax.annotation.Priority;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
@@ -45,9 +46,12 @@ import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Map;
 
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
+
 /**
  * @author andrew00x
  */
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 @Consumes({MediaType.APPLICATION_JSON})
 @Produces({MediaType.APPLICATION_JSON})

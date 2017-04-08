@@ -17,36 +17,26 @@ import org.hamcrest.Matchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.testng.MockitoTestNGListener;
-import org.testng.ITestContext;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.Collection;
-
+import static com.google.common.collect.Lists.newArrayList;
 import static com.jayway.restassured.RestAssured.expect;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Listeners(value = {EverrestJetty.class, MockitoTestNGListener.class})
 public class BookServiceTest {
-    @Mock
-    private BookStorage bookStorage;
-
-    @InjectMocks
-    private BookService bookService;
+    @Mock private BookStorage bookStorage;
+    @InjectMocks private BookService bookService;
 
     @Test
-    public void testName(ITestContext context) throws Exception {
-        Collection<Book> bookCollection = new ArrayList<Book>();
+    public void receivesResponseFromService() {
         Book book = new Book();
         book.setId("123-1235-555");
-        bookCollection.add(book);
-        when(bookStorage.getAll()).thenReturn(bookCollection);
+        when(bookStorage.getAll()).thenReturn(newArrayList(book));
 
-        //unsecure call to rest service
-        expect()
-                .body("id", Matchers.hasItem("123-1235-555"))
+        expect().body("id", Matchers.hasItem("123-1235-555"))
                 .when().get("/books");
 
         verify(bookStorage).getAll();

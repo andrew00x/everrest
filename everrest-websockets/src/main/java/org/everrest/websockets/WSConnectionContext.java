@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static org.everrest.websockets.message.RestOutputMessage.anOutput;
+
 /**
  * @author andrew00x
  */
@@ -77,12 +79,11 @@ public class WSConnectionContext {
     }
 
     private static RestOutputMessage newRestOutputMessage(ChannelBroadcastMessage message) {
-        final RestOutputMessage transport = new RestOutputMessage();
-        transport.setUuid(message.getUuid());
-        transport.setHeaders(new Pair[]{Pair.of("x-everrest-websocket-channel", message.getChannel()),
-                                        Pair.of("x-everrest-websocket-message-type", message.getType().toString())});
-        transport.setBody(message.getBody());
-        return transport;
+        return anOutput()
+                .uuid(message.getUuid())
+                .addHeader(Pair.of("x-everrest-websocket-channel", message.getChannel()))
+                .addHeader(Pair.of("x-everrest-websocket-message-type", message.getType().toString()))
+                .body(message.getBody()).build();
     }
 
     static {

@@ -10,13 +10,17 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.ConfigurationProperties;
 import org.everrest.core.Parameter;
+import org.everrest.core.ProviderBinder;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.InternalException;
+import org.everrest.core.impl.provider.DefaultReaderInterceptorContext;
+import org.everrest.core.impl.provider.MessageBodyReaderNotFoundException;
 import org.everrest.core.method.MethodInvoker;
-import org.everrest.core.method.MethodInvokerFilter;
+import org.everrest.core.method.ParameterResolver;
+import org.everrest.core.method.ParameterResolverFactory;
 import org.everrest.core.resource.GenericResourceMethod;
-import org.everrest.core.util.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,9 +29,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.MessageBodyReader;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
@@ -37,6 +39,7 @@ import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 import static javax.ws.rs.core.Response.Status.UNSUPPORTED_MEDIA_TYPE;
 import static org.everrest.core.impl.header.HeaderHelper.getContentLengthLong;
+import static org.everrest.core.impl.provider.DefaultReaderInterceptorContext.aReaderInterceptorContext;
 
 /**
  * Invoker for Resource Method, Sub-Resource Method and SubResource Locator.
@@ -44,7 +47,6 @@ import static org.everrest.core.impl.header.HeaderHelper.getContentLengthLong;
  * @author andrew00x
  */
 public class DefaultMethodInvoker implements MethodInvoker {
-    /** Logger. */
     private static final Logger LOG = LoggerFactory.getLogger(DefaultMethodInvoker.class);
 
     private final ParameterResolverFactory parameterResolverFactory;
@@ -67,75 +69,75 @@ public class DefaultMethodInvoker implements MethodInvoker {
         for (Parameter methodParameter : resourceMethod.getMethodParameters()) {
             Annotation methodParameterAnnotation = methodParameter.getAnnotation();
             if (methodParameterAnnotation != null) {
-                ParameterResolver<?> parameterResolver = parameterResolverFactory.createParameterResolver(methodParameterAnnotation);
-                try {
-                    params[i++] = parameterResolver.resolve(methodParameter, context);
-                } catch (Exception e) {
-                    String errorMsg = String.format("Not able resolve method parameter %s", methodParameter);
-                    Class<?> annotationType = methodParameterAnnotation.annotationType();
-                    if (annotationType == MatrixParam.class || annotationType == QueryParam.class || annotationType == PathParam.class) {
-                        throw new WebApplicationException(e, Response.status(NOT_FOUND).entity(errorMsg).type(TEXT_PLAIN).build());
-                    }
-                    throw new WebApplicationException(e, Response.status(BAD_REQUEST).entity(errorMsg).type(TEXT_PLAIN).build());
-                }
+                params[i++] = createAnnotatedParameter(context, methodParameter, methodParameterAnnotation);
             } else {
-                InputStream entityStream = context.getContainerRequest().getEntityStream();
-                if (entityStream == null) {
-                    params[i++] = null;
-                } else {
-                    MediaType contentType = context.getContainerRequest().getMediaType();
-
-                    MessageBodyReader entityReader =
-                            context.getProviders().getMessageBodyReader(methodParameter.getParameterClass(), methodParameter.getGenericType(),
-                                                                        methodParameter.getAnnotations(), contentType);
-                    if (entityReader == null) {
-                        long contentLength = 0;
-                        try {
-                            contentLength = getContentLengthLong(context.getContainerRequest().getRequestHeaders());
-                        } catch (NumberFormatException ignored) {
-                        }
-                        if (contentType == null && contentLength == 0) {
-                            params[i++] = null;
-                        } else {
-                            String msg = String.format("Media type %s is not supported. There is no corresponded entity reader for type %s",
-                                                       contentType, methodParameter.getParameterClass());
-                            LOG.debug(msg);
-                            throw new WebApplicationException(Response.status(UNSUPPORTED_MEDIA_TYPE).entity(msg).type(TEXT_PLAIN).build());
-                        }
-                    } else {
-                        try {
-                            if (Tracer.isTracingEnabled()) {
-                                Tracer.trace(String.format("Matched MessageBodyReader for type %s, media type %s = (%s)",
-                                                           methodParameter.getParameterClass(), contentType, entityReader));
-                            }
-
-                            MultivaluedMap<String, String> headers = context.getContainerRequest().getRequestHeaders();
-                            params[i++] = entityReader.readFrom(methodParameter.getParameterClass(), methodParameter.getGenericType(),
-                                                                methodParameter.getAnnotations(), contentType, headers, entityStream);
-                        } catch (Exception e) {
-                            LOG.debug(e.getMessage(), e);
-                            if (e instanceof WebApplicationException) {
-                                throw (WebApplicationException)e;
-                            }
-                            if (e instanceof InternalException) {
-                                throw (InternalException)e;
-                            }
-                            throw new InternalException(e);
-                        }
-                    }
-                }
+                params[i++] = createEntityParameter(context, methodParameter);
             }
         }
         return params;
     }
 
-    protected void beforeInvokeMethod(Object resource, GenericResourceMethod methodResource, Object[] params, ApplicationContext context) {
-        for (MethodInvokerFilter filter : context.getProviders().getMethodInvokerFilters(context.getPath())) {
-            filter.accept(methodResource, params);
+    private Object createAnnotatedParameter(ApplicationContext context, Parameter methodParameter, Annotation methodParameterAnnotation) {
+        ParameterResolver<?> parameterResolver = parameterResolverFactory.createParameterResolver(methodParameterAnnotation);
+        try {
+            return parameterResolver.resolve(methodParameter, context);
+        } catch (Exception e) {
+            String errorMsg = String.format("Not able resolve method parameter %s", methodParameter);
+            Class<?> annotationType = methodParameterAnnotation.annotationType();
+            if (annotationType == MatrixParam.class || annotationType == QueryParam.class || annotationType == PathParam.class) {
+                throw new WebApplicationException(e, Response.status(NOT_FOUND).entity(errorMsg).type(TEXT_PLAIN).build());
+            }
+            throw new WebApplicationException(e, Response.status(BAD_REQUEST).entity(errorMsg).type(TEXT_PLAIN).build());
         }
     }
 
-    public Object invokeMethod(Object resource, GenericResourceMethod methodResource, Object[] params, ApplicationContext context) {
+    private Object createEntityParameter(ApplicationContext context, Parameter methodParameter) {
+        Object result = null;
+        InputStream entityStream = context.getContainerRequest().getEntityStream();
+        MediaType mediaType = context.getContainerRequest().getMediaType();
+        if (entityStream != null) {
+            ProviderBinder providers = context.getProviders();
+            ConfigurationProperties properties = context.getConfigurationProperties();
+            DefaultReaderInterceptorContext readerInterceptorContext = aReaderInterceptorContext(providers, properties)
+                    .withType(methodParameter.getParameterClass())
+                    .withGenericType(methodParameter.getGenericType())
+                    .withAnnotations(methodParameter.getAnnotations())
+                    .withMediaType(mediaType)
+                    .withHeaders(context.getContainerRequest().getHeaders())
+                    .withEntityStream(entityStream)
+                    .build();
+            try {
+                result = readerInterceptorContext.proceed();
+            } catch (MessageBodyReaderNotFoundException e) {
+                long contentLength = getContentLengthOrZeroIfHeaderInvalid(context);
+                if (mediaType == null && contentLength == 0) {
+                    result = null;
+                } else {
+                    LOG.debug(e.getMessage());
+                    throw new WebApplicationException(Response.status(UNSUPPORTED_MEDIA_TYPE).entity(e.getMessage()).type(TEXT_PLAIN).build());
+                }
+            } catch (WebApplicationException | InternalException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new InternalException(e);
+            }
+        }
+        return result;
+    }
+
+    private long getContentLengthOrZeroIfHeaderInvalid(ApplicationContext context) {
+        long contentLength = 0;
+        try {
+            contentLength = getContentLengthLong(context.getContainerRequest().getRequestHeaders());
+        } catch (NumberFormatException ignored) {
+        }
+        return contentLength;
+    }
+
+    protected void beforeInvokeMethod(Object resource, GenericResourceMethod methodResource, Object[] params, ApplicationContext context) {
+    }
+
+    protected Object invokeMethod(Object resource, GenericResourceMethod methodResource, Object[] params, ApplicationContext context) {
         try {
             return methodResource.getMethod().invoke(resource, params);
         } catch (IllegalArgumentException | IllegalAccessException unexpectedException) {

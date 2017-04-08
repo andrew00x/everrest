@@ -10,14 +10,18 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
-
+import org.everrest.core.ConfigurationProperties;
 import org.everrest.core.ExtMultivaluedMap;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.impl.header.HeaderHelper;
+import org.everrest.core.impl.provider.DefaultReaderInterceptorContext;
 import org.everrest.core.util.CaselessMultivaluedMap;
 import org.everrest.core.util.CaselessStringWrapper;
 
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.core.CacheControl;
 import javax.ws.rs.core.EntityTag;
 import javax.ws.rs.core.GenericType;
@@ -27,24 +31,28 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.NewCookie;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Variant;
-import javax.ws.rs.ext.RuntimeDelegate;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newHashSet;
-import static java.util.stream.Collectors.toList;
+import static com.google.common.io.ByteStreams.toByteArray;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
 import static javax.ws.rs.core.HttpHeaders.ACCEPT;
 import static javax.ws.rs.core.HttpHeaders.ACCEPT_ENCODING;
 import static javax.ws.rs.core.HttpHeaders.ACCEPT_LANGUAGE;
@@ -63,91 +71,151 @@ import static javax.ws.rs.core.HttpHeaders.LINK;
 import static javax.ws.rs.core.HttpHeaders.LOCATION;
 import static javax.ws.rs.core.HttpHeaders.SET_COOKIE;
 import static javax.ws.rs.core.HttpHeaders.VARY;
-import static org.everrest.core.impl.header.HeaderHelper.getHeaderAsString;
+import static org.everrest.core.impl.header.HeaderHelper.convertToString;
+import static org.everrest.core.impl.header.HeaderHelper.getContentLength;
+import static org.everrest.core.impl.header.HeaderHelper.getFistHeader;
+import static org.everrest.core.impl.header.HeaderHelper.getHeader;
+import static org.everrest.core.impl.header.HeaderHelper.getHeaderAsStrings;
+import static org.everrest.core.impl.header.HeaderHelper.getHeadersView;
+import static org.everrest.core.impl.provider.DefaultReaderInterceptorContext.aReaderInterceptorContext;
+import static org.everrest.core.impl.provider.IOHelper.isEmpty;
 
 /**
  * @author andrew00x
  */
 public final class ResponseImpl extends Response {
-    /** HTTP status. */
-    private final int status;
-
-    /** Entity of response */
-    private final Object entity;
-
-    /** Annotations that will be passed to the {@link javax.ws.rs.ext.MessageBodyWriter}. */
-    private Annotation[] entityAnnotations;
-
-    /** HTTP headers. */
+    private final StatusType status;
+    private final Annotation[] entityAnnotations;
     private final MultivaluedMap<String, Object> headers;
-
+    private final ProviderBinder providers;
+    private final ConfigurationProperties properties;
+    private Object entity;
+    private InputStream entityStream;
+    private boolean entityStreamBuffered;
     private boolean closed;
 
     /**
      * Construct Response with supplied status, entity and headers.
      *
-     * @param status
-     *         HTTP status
-     * @param entity
-     *         an entity
-     * @param headers
-     *         HTTP headers
+     * @param status  HTTP status
+     * @param entity  an entity
+     * @param headers HTTP headers
      */
-    ResponseImpl(int status, Object entity, Annotation[] entityAnnotations, MultivaluedMap<String, Object> headers) {
-        this.status = status;
+    public ResponseImpl(int status, Object entity, Annotation[] entityAnnotations, MultivaluedMap<String, Object> headers) {
+        this.status = aStatus(status);
         this.entity = entity;
         this.entityAnnotations = entityAnnotations;
-        this.headers = headers;
+        this.headers = headers == null ? new CaselessMultivaluedMap<>() : headers;
+        providers = null;
+        properties = null;
+    }
+
+    public ResponseImpl(int status, InputStream entityStream, Annotation[] entityAnnotations, MultivaluedMap<String, Object> headers, ProviderBinder providers, ConfigurationProperties properties) {
+        this.status = aStatus(status);
+        this.entityStream = entityStream;
+        this.entityAnnotations = entityAnnotations;
+        this.headers = headers == null ? new CaselessMultivaluedMap<>() : headers;
+        this.providers = providers;
+        this.properties = properties;
+    }
+
+    @VisibleForTesting
+    Annotation[] getEntityAnnotations() {
+        return entityAnnotations;
+    }
+
+    @VisibleForTesting
+    InputStream getEntityStream() {
+        return entityStream;
+    }
+
+    @VisibleForTesting
+    boolean isEntityStreamBuffered() {
+        return entityStreamBuffered;
     }
 
     @Override
     public Object getEntity() {
-        checkState(!closed, "Response already closed");
+        checkState(isNotClosed(), "Response already closed");
         return entity;
-    }
-
-    public Annotation[] getEntityAnnotations() {
-        return entityAnnotations;
     }
 
     @Override
     public <T> T readEntity(Class<T> entityType) {
-        return doReadEntity(entityType, null, null);
+        checkState(isNotClosed(), "Response already closed");
+        return readEntity(entityType, entityType, entityAnnotations);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public <T> T readEntity(GenericType<T> entityType) {
-        return doReadEntity((Class<T>)entityType.getRawType(), entityType.getType(), null);
+        checkState(isNotClosed(), "Response already closed");
+        return readEntity((Class<T>) entityType.getRawType(), entityType.getType(), entityAnnotations);
     }
 
     @Override
     public <T> T readEntity(Class<T> entityType, Annotation[] annotations) {
-        return doReadEntity(entityType, null, annotations);
+        checkState(isNotClosed(), "Response already closed");
+        return readEntity(entityType, entityType, annotations);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public <T> T readEntity(GenericType<T> entityType, Annotation[] annotations) {
-        return doReadEntity((Class<T>)entityType.getRawType(), entityType.getType(), annotations);
+        checkState(isNotClosed(), "Response already closed");
+        return readEntity((Class<T>) entityType.getRawType(), entityType.getType(), annotations);
     }
 
-    private <T> T doReadEntity(Class<T> type, Type genericType, Annotation[] annotations) {
-        checkState(!closed, "Response already closed");
-        // TODO: implement as part of client implementation
-        throw new UnsupportedOperationException();
+    private <T> T readEntity(Class<T> entityType, Type genericType, Annotation[] annotations) {
+        if (entityStreamBuffered) {
+            try {
+                entityStream.reset();
+            } catch (IOException e) {
+                throw new ProcessingException(e.getMessage(), e);
+            }
+        }
+        if (isEmpty(entityStream)) {
+            throw new IllegalStateException("Response does not have entity stream or has already been consumed without buffering");
+        }
+        DefaultReaderInterceptorContext readerInterceptorContext = aReaderInterceptorContext(providers, properties)
+                .withType(entityType)
+                .withGenericType(genericType)
+                .withAnnotations(annotations)
+                .withMediaType(getMediaType())
+                .withHeaders(getStringHeaders())
+                .withEntityStream(entityStream)
+                .build();
+        try {
+            entity = readerInterceptorContext.proceed();
+        } catch (IOException e) {
+            throw new ProcessingException(e.getMessage(), e);
+        }
+        return entityType.cast(entity);
     }
 
     @Override
     public boolean hasEntity() {
-        checkState(!closed, "Response already closed");
+        checkState(isNotClosed(), "Response already closed");
         return entity != null;
     }
 
     @Override
     public boolean bufferEntity() {
-        checkState(!closed, "Response already closed");
-        // TODO: implement as part of client implementation
+        checkState(isNotClosed(), "Response already closed");
+        if (entityStreamBuffered) {
+            return true;
+        }
+        if (!isEmpty(entityStream)) {
+            InputStream buffered;
+            try (InputStream in = entityStream) {
+                buffered = new ByteArrayInputStream(toByteArray(in));
+            } catch (IOException e) {
+                throw new ProcessingException(e.getMessage(), e);
+            }
+            entityStreamBuffered = true;
+            entityStream = buffered;
+            return true;
+        }
         return false;
     }
 
@@ -160,176 +228,80 @@ public final class ResponseImpl extends Response {
         return closed;
     }
 
+    private boolean isNotClosed() {
+        return !closed;
+    }
+
     @Override
     public MediaType getMediaType() {
-        Object value = getMetadata().getFirst(CONTENT_TYPE);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof MediaType) {
-            return (MediaType)value;
-        }
-        return MediaType.valueOf(value instanceof String ? (String)value : getHeaderAsString(value));
+        return getFistHeader(CONTENT_TYPE, getHeaders(), MediaType.class);
     }
 
     @Override
     public Locale getLanguage() {
-        Object value = getMetadata().getFirst(CONTENT_LANGUAGE);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Locale) {
-            return (Locale)value;
-        }
-        return RuntimeDelegate.getInstance().createHeaderDelegate(Locale.class)
-                              .fromString(value instanceof String ? (String)value : getHeaderAsString(value));
+        return getFistHeader(CONTENT_LANGUAGE, getHeaders(), Locale.class);
     }
 
     @Override
     public int getLength() {
-        Object value = getMetadata().getFirst(CONTENT_LENGTH);
-        if (value == null) {
-            return -1;
-        }
-        if (value instanceof Integer) {
-            return (Integer)value;
-        }
-        return Integer.valueOf(value instanceof String ? (String)value : getHeaderAsString(value));
+        return getContentLength(getHeaders());
     }
 
     @Override
     public Set<String> getAllowedMethods() {
-        List<Object> allowedHeaders = getMetadata().get(ALLOW);
-        if (allowedHeaders == null) {
-            return Collections.emptySet();
-        }
-        Set<String> allowedMethods = new LinkedHashSet<>();
-        for (Object allowMethod : allowedHeaders) {
-            if (allowMethod instanceof String) {
-                for (String s : ((String)allowMethod).split(",")) {
-                    s = s.trim();
-                    if (!s.isEmpty()) {
-                        allowedMethods.add(s.toUpperCase());
-                    }
-                }
-            } else if (allowMethod != null) {
-                allowedMethods.add(getHeaderAsString(allowMethod).toUpperCase());
-            }
-        }
-        return allowedMethods;
+        return getHeaderAsStrings(getHeaders().get(ALLOW)).stream().map(String::toUpperCase).collect(toSet());
     }
 
     @Override
     public Map<String, NewCookie> getCookies() {
-        List<Object> cookieHeaders = getMetadata().get(SET_COOKIE);
-        if (cookieHeaders == null) {
-            return Collections.emptyMap();
-        }
-        Map<String, NewCookie> cookies = new HashMap<>();
-        for (Object cookieHeader : cookieHeaders) {
-            if (cookieHeader instanceof NewCookie) {
-                NewCookie newCookie = (NewCookie)cookieHeader;
-                cookies.put(newCookie.getName(), newCookie);
-            } else if (cookieHeader != null) {
-                NewCookie newCookie = NewCookie.valueOf(getHeaderAsString(cookieHeader));
-                if (newCookie != null) {
-                    cookies.put(newCookie.getName(), newCookie);
-                }
-            }
-        }
-
-        return cookies;
+        return getHeader(SET_COOKIE, getHeaders(), NewCookie.class).stream()
+                .collect(toMap(NewCookie::getName, identity()));
     }
 
     @Override
     public EntityTag getEntityTag() {
-        Object value = getMetadata().getFirst(ETAG);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof EntityTag) {
-            return (EntityTag)value;
-        }
-        return EntityTag.valueOf(value instanceof String ? (String)value : getHeaderAsString(value));
+        return getFistHeader(ETAG, getHeaders(), EntityTag.class);
     }
 
     @Override
     public Date getDate() {
-        return getDateHeader(DATE);
+        return getFistHeader(DATE, getHeaders(), Date.class);
     }
 
     @Override
     public Date getLastModified() {
-        return getDateHeader(LAST_MODIFIED);
-    }
-
-    private Date getDateHeader(String name) {
-        Object value = getMetadata().getFirst(name);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Date) {
-            return (Date)value;
-        }
-        return HeaderHelper.parseDateHeader(value instanceof String ? (String)value : getHeaderAsString(value));
+        return getFistHeader(LAST_MODIFIED, getHeaders(), Date.class);
     }
 
     @Override
     public URI getLocation() {
-        Object value = getMetadata().getFirst(LOCATION);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof URI) {
-            return (URI)value;
-        }
-        return URI.create(value instanceof String ? (String)value : getHeaderAsString(value));
+        return getFistHeader(LOCATION, getHeaders(), URI.class);
     }
 
     @Override
     public Set<Link> getLinks() {
-        List<Object> links = getMetadata().get(LINK);
-        if (links == null) {
-            return Collections.emptySet();
-        }
-        Set<Link> linkSet = new LinkedHashSet<>();
-        for (Object value : links) {
-            if (value instanceof Link) {
-                linkSet.add((Link)value);
-            } else {
-                linkSet.add(Link.valueOf(value instanceof String ? (String)value : getHeaderAsString(value)));
-            }
-        }
-        return linkSet;
+        return getHeader(LINK, getHeaders(), Link.class).stream().collect(toSet());
     }
 
     @Override
     public boolean hasLink(String relation) {
-        for (Link link : getLinks()) {
-            if (link.getRels().contains(relation)) {
-                return true;
-            }
-        }
-        return false;
+        return findLink(relation).isPresent();
     }
 
     @Override
     public Link getLink(String relation) {
-        for (Link link : getLinks()) {
-            if (link.getRels().contains(relation)) {
-                return link;
-            }
-        }
-        return null;
+        return findLink(relation).orElse(null);
     }
 
     @Override
     public Link.Builder getLinkBuilder(String relation) {
-        Link link = getLink(relation);
-        if (link == null) {
-            return null;
-        }
-        return Link.fromLink(link);
+        return findLink(relation).map(Link::fromLink).orElse(null);
+    }
+
+    private Optional<Link> findLink(String relation) {
+        return getLinks().stream()
+                .filter(link -> link.getRels().contains(relation))
+                .findFirst();
     }
 
     @Override
@@ -339,48 +311,38 @@ public final class ResponseImpl extends Response {
 
     @Override
     public MultivaluedMap<String, String> getStringHeaders() {
-        CaselessMultivaluedMap<String> headerStrings = new CaselessMultivaluedMap<>();
-        for (Map.Entry<String, List<Object>> entry : getMetadata().entrySet()) {
-            List<Object> values = entry.getValue();
-            if (values != null) {
-                for (Object value : values) {
-                    headerStrings.add(entry.getKey(), getHeaderAsString(value));
-                }
-            }
-        }
-        return headerStrings;
+        return getHeadersView(getHeaders(), HeaderHelper::getHeaderAsStrings);
     }
 
     @Override
     public String getHeaderString(String name) {
-        List<Object> headers = getMetadata().get(name);
-        if (headers == null) {
-            return null;
-        }
-        List<String> headerStrings = headers.stream().map(HeaderHelper::getHeaderAsString).collect(toList());
-        return HeaderHelper.convertToString(headerStrings);
+        return convertToString(getHeaders().get(name));
     }
 
     @Override
     public int getStatus() {
-        return status;
+        return status.getStatusCode();
     }
 
     @Override
     public StatusType getStatusInfo() {
-        final Status statusInstance = Status.fromStatusCode(status);
+        return status;
+    }
+
+    public static StatusType aStatus(int code) {
+        final Status statusInstance = Status.fromStatusCode(code);
         if (statusInstance != null) {
             return statusInstance;
         }
         return new StatusType() {
             @Override
             public int getStatusCode() {
-                return status;
+                return code;
             }
 
             @Override
             public Status.Family getFamily() {
-                return Status.Family.familyOf(status);
+                return Status.Family.familyOf(code);
             }
 
             @Override

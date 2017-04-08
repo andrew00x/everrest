@@ -10,13 +10,11 @@
  *******************************************************************************/
 package org.everrest.core;
 
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.container.ContainerResponseContext;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
-import java.lang.reflect.Type;
 
-public interface GenericContainerResponse {
+public interface GenericContainerResponse extends ContainerResponseContext {
 
     /**
      * Set response. New response can override old one.
@@ -27,11 +25,9 @@ public interface GenericContainerResponse {
     void setResponse(Response response);
 
     /**
-     * Get preset {@link Response}. This method can be useful for modification
-     * {@link GenericContainerResponse}. See
-     * {@link ResponseFilter#doFilter(GenericContainerResponse)}.
+     * Get preset {@link Response}.
      *
-     * @return preset {@link Response} or null if it was not initialized yet.
+     * @return preset {@link Response}.
      */
     Response getResponse();
 
@@ -42,20 +38,4 @@ public interface GenericContainerResponse {
      *         if any i/o errors occurs
      */
     void writeResponse() throws IOException;
-
-    /** @return HTTP status */
-    int getStatus();
-
-    /** @return HTTP headers */
-    MultivaluedMap<String, Object> getHttpHeaders();
-
-    /** @return entity body */
-    Object getEntity();
-
-    /** @return entity type */
-    Type getEntityType();
-
-    /** @return body content type */
-    MediaType getContentType();
-
 }

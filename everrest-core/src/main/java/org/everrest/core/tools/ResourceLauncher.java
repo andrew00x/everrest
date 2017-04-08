@@ -11,6 +11,7 @@
 package org.everrest.core.tools;
 
 import org.everrest.core.ContainerResponseWriter;
+import org.everrest.core.SimpleConfigurationProperties;
 import org.everrest.core.impl.ContainerRequest;
 import org.everrest.core.impl.ContainerResponse;
 import org.everrest.core.impl.EnvironmentContext;
@@ -83,14 +84,14 @@ public class ResourceLauncher {
             writer = new DummyContainerResponseWriter();
         }
 
-        SecurityContext securityContext = (SecurityContext)env.get(SecurityContext.class);
+        SecurityContext securityContext = env.get(SecurityContext.class);
 
         if (securityContext == null) {
             securityContext = new SimpleSecurityContext(false);
         }
 
         ContainerRequest request = new ContainerRequest(httpMethod, URI.create(requestURI), URI.create(baseURI), in,
-                                                        new InputHeadersMap(headersCopy), securityContext);
+                                                        new InputHeadersMap(headersCopy), securityContext, new SimpleConfigurationProperties());
         ContainerResponse response = new ContainerResponse(writer);
         processor.process(request, response, env);
         return response;

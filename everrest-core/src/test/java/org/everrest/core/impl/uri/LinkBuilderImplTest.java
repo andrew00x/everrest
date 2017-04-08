@@ -10,9 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.impl.uri;
 
-
 import com.google.common.collect.ImmutableMap;
-
 import org.junit.Before;
 import org.junit.Test;
 

@@ -11,8 +11,7 @@
 package org.everrest.core.impl.provider;
 
 import com.google.common.io.ByteStreams;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,6 +21,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.Random;
 
+import static org.everrest.core.impl.ServerConfigurationProperties.DEFAULT_MAX_BUFFER_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_MAX_BUFFER_SIZE;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -38,7 +39,7 @@ public class InputStreamEntityProviderTest {
         testContent = new byte[16];
         new Random().nextBytes(testContent);
         ApplicationContext context = mock(ApplicationContext.class, RETURNS_DEEP_STUBS);
-        when(context.getEverrestConfiguration().getMaxBufferSize()).thenReturn(100);
+        when(context.getConfigurationProperties().getIntegerProperty(EVERREST_MAX_BUFFER_SIZE, DEFAULT_MAX_BUFFER_SIZE)).thenReturn(100);
         ApplicationContext.setCurrent(context);
     }
 

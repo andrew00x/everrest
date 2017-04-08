@@ -10,7 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.method.MethodInvoker;
 import org.everrest.core.resource.GenericResourceMethod;
 
@@ -32,7 +32,7 @@ public class MethodInvokerDecorator implements MethodInvoker {
 
     /**
      * @see org.everrest.core.method.MethodInvoker#invokeMethod(java.lang.Object,
-     * GenericResourceMethod, org.everrest.core.ApplicationContext)
+     * GenericResourceMethod, ApplicationContext)
      */
     @Override
     public Object invokeMethod(Object resource, GenericResourceMethod genericResourceMethod, ApplicationContext context) {

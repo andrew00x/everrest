@@ -11,12 +11,12 @@
 package org.everrest.websockets.client;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-
 import org.everrest.core.impl.provider.json.JsonException;
 import org.everrest.websockets.message.BaseTextEncoder;
 import org.everrest.websockets.message.InputMessage;
 import org.everrest.websockets.message.JsonMessageConverter;
 import org.everrest.websockets.message.MessageSender;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.websocket.ClientEndpoint;
@@ -49,6 +49,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.websocket.ContainerProvider.getWebSocketContainer;
 import static javax.websocket.RemoteEndpoint.Basic;
 import static org.everrest.core.impl.uri.UriComponent.parseQueryString;
+import static org.everrest.websockets.message.RestInputMessage.anInput;
 import static org.everrest.websockets.message.RestInputMessage.newSubscribeChannelMessage;
 import static org.everrest.websockets.message.RestInputMessage.newUnsubscribeChannelMessage;
 
@@ -57,7 +58,7 @@ import static org.everrest.websockets.message.RestInputMessage.newUnsubscribeCha
  */
 @ClientEndpoint(encoders = {WSClient.InputMessageEncoder.class})
 public class WSClient {
-    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(WSClient.class);
+    private static final Logger LOG = LoggerFactory.getLogger(WSClient.class);
 
     private static ExecutorService executor = newCachedThreadPool(
             new ThreadFactoryBuilder().setNameFormat("everrest.WSClient-%d").setDaemon(true).build());
@@ -68,6 +69,7 @@ public class WSClient {
 
     private Session       session;
     private MessageSender messageSender;
+    private int           maxNumberOfMessagesInQueue;
 
     public WSClient(URI serverUri, ClientMessageListener... listeners) {
         this(Builder.create(serverUri).listeners(listeners));
@@ -77,6 +79,7 @@ public class WSClient {
         this.serverUri = builder.serverUri;
         this.listeners = builder.listeners;
         this.channels = builder.channels;
+        this.maxNumberOfMessagesInQueue = builder.maxNumberOfMessagesInQueue;
     }
 
     /**
@@ -180,7 +183,7 @@ public class WSClient {
     public void onOpen(Session session) {
         LOG.debug("WS session {} started", session.getId());
         this.session = session;
-        messageSender = new MessageSender(session);
+        messageSender = new MessageSender(session, maxNumberOfMessagesInQueue);
         for (ClientMessageListener listener : listeners) {
             listener.onOpen(this);
         }
@@ -233,6 +236,8 @@ public class WSClient {
         private final List<ClientMessageListener> listeners;
         private final List<String>                channels;
 
+        private int maxNumberOfMessagesInQueue = 1_000_000;
+
         public static Builder create(URI serverUri) {
             return new Builder(serverUri);
         }
@@ -270,8 +275,29 @@ public class WSClient {
             return this;
         }
 
+        public Builder maxNumberOfMessagesInQueue(int num) {
+            this.maxNumberOfMessagesInQueue = num;
+            return this;
+        }
+
         public WSClient build() {
             return new WSClient(this);
         }
+    }
+
+    public static void main(String... args) throws Exception {
+        WSClient client = new WSClient(URI.create("ws://localhost:8080/book-service/ws"), new BaseClientMessageListener() {
+            @Override
+            public void onMessage(String data) {
+                System.out.println(data);
+            }
+        });
+
+        client.connect(2000);
+        Thread.sleep(1000);
+
+        client.send(anInput().uuid("1000").method("GET").path("books").build());
+        Thread.sleep(3000);
+client.disconnect();
     }
 }

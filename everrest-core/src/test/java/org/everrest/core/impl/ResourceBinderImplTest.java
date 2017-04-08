@@ -10,7 +10,6 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.ObjectFactory;
 import org.everrest.core.ResourcePublicationException;
 import org.everrest.core.resource.ResourceDescriptor;

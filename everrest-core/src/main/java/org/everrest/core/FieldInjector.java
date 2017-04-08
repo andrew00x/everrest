@@ -10,6 +10,8 @@
  *******************************************************************************/
 package org.everrest.core;
 
+import org.everrest.core.impl.ApplicationContext;
+
 /**
  * Object field. Useful for initialization object field if type is used in* per-request mode.
  *

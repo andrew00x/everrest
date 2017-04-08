@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.impl.async;
 
+import org.everrest.core.async.AsynchronousJobListener;
 import org.everrest.core.resource.ResourceMethodDescriptor;
 
 import java.util.List;

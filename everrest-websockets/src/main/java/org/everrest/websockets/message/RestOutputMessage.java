@@ -10,15 +10,82 @@
  *******************************************************************************/
 package org.everrest.websockets.message;
 
+import java.util.LinkedList;
+import java.util.List;
+
 /**
  * REST output messages.
  *
  * @author andrew00x
  */
 public class RestOutputMessage extends OutputMessage {
+
+    public static Builder anOutput() {
+        return new Builder();
+    }
+
+    public static Builder anOutput(RestInputMessage input) {
+        return anOutput()
+                .uuid(input.getUuid())
+                .method(input.getMethod())
+                .path(input.getPath());
+    }
+
+    public static class Builder {
+        private String method;
+        private String path;
+        private int responseCode;
+        private String uuid;
+        private String body;
+        private List<Pair> headers = new LinkedList<>();
+
+        public Builder responseCode(int code) {
+            this.responseCode = code;
+            return this;
+        }
+
+        public Builder method(String method) {
+            this.method = method;
+            return this;
+        }
+
+        public Builder path(String path) {
+            this.path = path;
+            return this;
+        }
+
+        public Builder addHeader(Pair header) {
+            headers.add(header);
+            return this;
+        }
+
+        public Builder uuid(String uuid) {
+            this.uuid = uuid;
+            return this;
+        }
+
+        public Builder body(String body) {
+            this.body = body;
+            return this;
+        }
+
+        public RestOutputMessage build() {
+            return new RestOutputMessage(responseCode, method, path, uuid, headers.toArray(new Pair[headers.size()]), body);
+        }
+    }
+
     private String method;
     private String path;
     private Pair[] headers;
+
+    public RestOutputMessage(int responseCode, String method, String path, String uuid, Pair[] headers, String body) {
+        this.method = method;
+        this.path = path;
+        this.headers = headers;
+        setResponseCode(responseCode);
+        setUuid(uuid);
+        setBody(body);
+    }
 
     public RestOutputMessage() {
     }

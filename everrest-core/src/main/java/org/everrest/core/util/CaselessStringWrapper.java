@@ -12,6 +12,10 @@ package org.everrest.core.util;
 
 /** Caseless wrapper for strings. */
 public final class CaselessStringWrapper {
+    public static CaselessStringWrapper caseLess(String str) {
+        return new CaselessStringWrapper(str);
+    }
+
     private final String string;
 
     private final String caselessString;

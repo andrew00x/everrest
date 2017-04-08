@@ -14,7 +14,6 @@ import com.google.common.collect.ImmutableMap;
 import com.tngtech.java.junit.dataprovider.DataProvider;
 import com.tngtech.java.junit.dataprovider.DataProviderRunner;
 import com.tngtech.java.junit.dataprovider.UseDataProvider;
-
 import org.everrest.core.impl.BaseTest;
 import org.everrest.core.impl.ContainerResponse;
 import org.junit.Test;
@@ -47,7 +46,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
 import static com.google.common.collect.Sets.newTreeSet;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
 
 @RunWith(DataProviderRunner.class)
 public class ConstructorParametersInjectionTest extends BaseTest {
@@ -132,7 +131,7 @@ public class ConstructorParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/f/1", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", UriInfo.class), response.getEntity() instanceof UriInfo);
+        assertEquals(String.format("Expected %s injected", UriInfo.class), "UriInfo",  response.getEntity());
     }
 
     @Test
@@ -145,7 +144,7 @@ public class ConstructorParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/g/1", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", Request.class), response.getEntity() instanceof Request);
+        assertEquals(String.format("Expected %s injected", Request.class), "Request", response.getEntity());
     }
 
     @Test
@@ -158,7 +157,7 @@ public class ConstructorParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/h/1", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", HttpHeaders.class), response.getEntity() instanceof HttpHeaders);
+        assertEquals(String.format("Expected %s injected", HttpHeaders.class), "HttpHeaders", response.getEntity());
     }
 
     @Test
@@ -171,7 +170,7 @@ public class ConstructorParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/i/1", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", SecurityContext.class), response.getEntity() instanceof SecurityContext);
+        assertEquals(String.format("Expected %s injected", SecurityContext.class), "SecurityContext", response.getEntity());
     }
 
     @Test
@@ -184,7 +183,7 @@ public class ConstructorParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/j/1", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", Providers.class), response.getEntity() instanceof Providers);
+        assertEquals(String.format("Expected %s injected", Providers.class), "Providers", response.getEntity());
     }
 
     @Test
@@ -197,7 +196,7 @@ public class ConstructorParametersInjectionTest extends BaseTest {
         });
         ContainerResponse response = launcher.service("POST", "/k/1", "", null, null, null);
 
-        assertTrue(String.format("Expected %s injected", Application.class), response.getEntity() instanceof Application);
+        assertEquals(String.format("Expected %s injected", Application.class), "Application", response.getEntity());
     }
 
 
@@ -885,8 +884,9 @@ public class ConstructorParametersInjectionTest extends BaseTest {
 
         @Path("1")
         @POST
-        public UriInfo m1() {
-            return uriInfo;
+        public String m1() {
+            assertNotNull(uriInfo);
+            return "UriInfo";
         }
     }
 
@@ -900,8 +900,9 @@ public class ConstructorParametersInjectionTest extends BaseTest {
 
         @Path("1")
         @POST
-        public Request m1() {
-            return request;
+        public String m1() {
+            assertNotNull(request);
+            return "Request";
         }
     }
 
@@ -915,8 +916,9 @@ public class ConstructorParametersInjectionTest extends BaseTest {
 
         @Path("1")
         @POST
-        public HttpHeaders m1() {
-            return httpHeaders;
+        public String m1() {
+            assertNotNull(httpHeaders);
+            return "HttpHeaders";
         }
     }
 
@@ -930,8 +932,9 @@ public class ConstructorParametersInjectionTest extends BaseTest {
 
         @Path("1")
         @POST
-        public SecurityContext m1() {
-            return securityContext;
+        public String m1() {
+            assertNotNull(securityContext);
+            return "SecurityContext";
         }
     }
 
@@ -945,8 +948,9 @@ public class ConstructorParametersInjectionTest extends BaseTest {
 
         @Path("1")
         @POST
-        public Providers m1() {
-            return providers;
+        public String m1() {
+            assertNotNull(providers);
+            return "Providers";
         }
     }
 
@@ -960,8 +964,9 @@ public class ConstructorParametersInjectionTest extends BaseTest {
 
         @Path("1")
         @POST
-        public Application m1() {
-            return application;
+        public String m1() {
+            assertNotNull(application);
+            return "Application";
         }
     }
 }

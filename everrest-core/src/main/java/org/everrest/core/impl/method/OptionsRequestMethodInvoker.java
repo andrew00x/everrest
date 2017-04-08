@@ -10,7 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.header.MediaTypeHelper;
 import org.everrest.core.method.MethodInvoker;
 import org.everrest.core.resource.GenericResourceMethod;

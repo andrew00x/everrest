@@ -10,11 +10,12 @@
  *******************************************************************************/
 package org.everrest.core;
 
+import org.everrest.core.async.AsynchronousJobPool;
+import org.everrest.core.impl.ApplicationContext;
+import org.everrest.core.impl.DefaultProviderBinder;
 import org.everrest.core.impl.EnvironmentContext;
-import org.everrest.core.impl.EverrestConfiguration;
 import org.everrest.core.impl.LifecycleComponent;
-import org.everrest.core.impl.ProviderBinder;
-import org.everrest.core.impl.async.AsynchronousJobPool;
+import org.everrest.core.impl.ServerConfigurationProperties;
 import org.everrest.core.impl.async.AsynchronousMethodInvoker;
 import org.everrest.core.impl.method.DefaultMethodInvoker;
 import org.everrest.core.impl.method.MethodInvokerDecorator;
@@ -36,13 +37,14 @@ import javax.ws.rs.core.Application;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.PathSegment;
+import javax.ws.rs.ext.ContextResolver;
 import java.net.URI;
 import java.security.Principal;
 import java.util.List;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
-import static org.everrest.core.ApplicationContext.anApplicationContext;
+import static org.everrest.core.impl.ApplicationContext.anApplicationContext;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -59,7 +61,10 @@ public class ApplicationContextTest {
     private GenericContainerRequest  request;
     private GenericContainerResponse response;
     private ProviderBinder           providers;
+    private Application              application;
     private EnvironmentContext       environmentContext;
+    private DependencySupplier       dependencySupplier;
+    private ServerConfigurationProperties configuration;
 
     private ApplicationContext applicationContext;
 
@@ -67,15 +72,20 @@ public class ApplicationContextTest {
     public void setUp() throws Exception {
         request = mock(ServletContainerRequest.class);
         response = mock(GenericContainerResponse.class);
-        providers = mock(ProviderBinder.class);
+        providers = mock(DefaultProviderBinder.class);
+        application = mock(Application.class);
+        dependencySupplier = mock(DependencySupplier.class);
         environmentContext = mock(EnvironmentContext.class);
-
-        EnvironmentContext.setCurrent(environmentContext);
+        configuration = mock(ServerConfigurationProperties.class);
 
         applicationContext = anApplicationContext()
                 .withRequest(request)
                 .withResponse(response)
                 .withProviders(providers)
+                .withApplication(application)
+                .withEnvironmentContext(environmentContext)
+                .withDependencySupplier(dependencySupplier)
+                .withConfiguration(configuration)
                 .build();
     }
 
@@ -154,6 +164,21 @@ public class ApplicationContextTest {
     }
 
     @Test
+    public void getsApplication() {
+        assertSame(application, applicationContext.getApplication());
+    }
+
+    @Test
+    public void getsDependencySupplier() {
+        assertSame(dependencySupplier, applicationContext.getDependencySupplier());
+    }
+
+    @Test
+    public void getsEverrestConfiguration() {
+        assertSame(configuration, applicationContext.getConfigurationProperties());
+    }
+
+    @Test
     public void resolvesUriAgainstBaseUri() {
         when(request.getBaseUri()).thenReturn(URI.create("http://localhost:8080/a/b/"));
 
@@ -215,7 +240,8 @@ public class ApplicationContextTest {
         when(request.getRequestHeaders()).thenReturn(new MultivaluedHashMap<>());
         when(request.getMethod()).thenReturn("GET");
 
-        when(providers.getContextResolver(AsynchronousJobPool.class, null)).thenReturn(mock(AsynchronousJobPool.class));
+        ContextResolver<AsynchronousJobPool> poolContext = mockAsynchronousJobPoolContextResolver();
+        when(providers.getContextResolver(AsynchronousJobPool.class, null)).thenReturn(poolContext);
 
         MethodInvoker methodInvoker = applicationContext.getMethodInvoker(mock(ResourceMethodDescriptor.class));
         assertTrue(String.format("Expected instance of AsynchronousMethodInvoker but actual is %s", methodInvoker),
@@ -230,7 +256,8 @@ public class ApplicationContextTest {
         when(request.getRequestHeaders()).thenReturn(headers);
         when(request.getMethod()).thenReturn("GET");
 
-        when(providers.getContextResolver(AsynchronousJobPool.class, null)).thenReturn(mock(AsynchronousJobPool.class));
+        ContextResolver<AsynchronousJobPool> poolContext = mockAsynchronousJobPoolContextResolver();
+        when(providers.getContextResolver(AsynchronousJobPool.class, null)).thenReturn(poolContext);
 
         MethodInvoker methodInvoker = applicationContext.getMethodInvoker(mock(ResourceMethodDescriptor.class));
         assertTrue(String.format("Expected instance of AsynchronousMethodInvoker but actual is %s", methodInvoker),
@@ -328,13 +355,8 @@ public class ApplicationContextTest {
     }
 
     @Test
-    public void getsNonPropertyMap() {
-        assertNotNull(applicationContext.getProperties());
-    }
-
-    @Test
     public void consumesProviderBinderAndReturnsItOnNextCall() {
-        ProviderBinder providers = mock(ProviderBinder.class);
+        ProviderBinder providers = mock(DefaultProviderBinder.class);
         applicationContext.setProviders(providers);
 
         assertSame(providers, applicationContext.getProviders());
@@ -408,14 +430,7 @@ public class ApplicationContextTest {
 
     @Test
     public void getsNonNullEverrestConfiguration() {
-        assertNotNull(applicationContext.getEverrestConfiguration());
-    }
-
-    @Test
-    public void consumesEverrestConfigurationAndReturnsItOnNextCall() {
-        EverrestConfiguration configuration = mock(EverrestConfiguration.class);
-        applicationContext.setEverrestConfiguration(configuration);
-        assertSame(configuration, applicationContext.getEverrestConfiguration());
+        assertNotNull(applicationContext.getConfigurationProperties());
     }
 
     @Test
@@ -433,17 +448,10 @@ public class ApplicationContextTest {
         assertSame(applicationContext, applicationContext.getUriInfo());
     }
 
-    @Test
-    public void consumesDependencySupplierAndReturnsItOnNextCall() {
-        DependencySupplier dependencySupplier = mock(DependencySupplier.class);
-        applicationContext.setDependencySupplier(dependencySupplier);
-        assertSame(dependencySupplier, applicationContext.getDependencySupplier());
-    }
-
-    @Test
-    public void consumesApplicationAndReturnsItOnNextCall() {
-        Application application = mock(Application.class);
-        applicationContext.setApplication(application);
-        assertSame(application, applicationContext.getApplication());
+    private ContextResolver<AsynchronousJobPool> mockAsynchronousJobPoolContextResolver() {
+        ContextResolver<AsynchronousJobPool> poolContext = mock(ContextResolver.class);
+        AsynchronousJobPool pool = mock(AsynchronousJobPool.class);
+        when(poolContext.getContext(AsynchronousJobPool.class)).thenReturn(pool);
+        return poolContext;
     }
 }

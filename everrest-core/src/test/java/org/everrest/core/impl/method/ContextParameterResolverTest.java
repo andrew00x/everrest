@@ -10,11 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
-import org.everrest.core.InitialProperties;
 import org.everrest.core.Parameter;
+import org.everrest.core.ProviderBinder;
+import org.everrest.core.impl.ApplicationContext;
+import org.everrest.core.impl.DefaultProviderBinder;
 import org.everrest.core.impl.EnvironmentContext;
-import org.everrest.core.impl.ProviderBinder;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -31,7 +31,6 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,7 +48,7 @@ public class ContextParameterResolverTest {
 
         contextParameterResolver = new ContextParameterResolver();
         environmentContext = mock(EnvironmentContext.class);
-        EnvironmentContext.setCurrent(environmentContext);
+        when(applicationContext.getEnvironmentContext()).thenReturn(environmentContext);
     }
 
     @Test
@@ -94,7 +93,7 @@ public class ContextParameterResolverTest {
 
     @Test
     public void resolvesProviders() throws Exception {
-        ProviderBinder providers = mock(ProviderBinder.class);
+        ProviderBinder providers = mock(DefaultProviderBinder.class);
         when(applicationContext.getProviders()).thenReturn(providers);
         when(parameter.getParameterClass()).thenReturn((Class)Providers.class);
 
@@ -113,16 +112,6 @@ public class ContextParameterResolverTest {
     }
 
     @Test
-    public void resolvesInitialProperties() throws Exception {
-        InitialProperties initialProperties = mock(InitialProperties.class);
-        when(applicationContext.getInitialProperties()).thenReturn(initialProperties);
-        when(parameter.getParameterClass()).thenReturn((Class)InitialProperties.class);
-
-        assertSame(initialProperties, contextParameterResolver.resolve(parameter, applicationContext));
-        verify(environmentContext, never()).get(any(Class.class));
-    }
-
-    @Test
     public void usesEnvironmentContextToResolveContextParameters() throws Exception {
         HttpServletRequest servletRequest = mock(HttpServletRequest.class);
         when(environmentContext.get(eq(HttpServletRequest.class))).thenReturn(servletRequest);
@@ -130,6 +119,6 @@ public class ContextParameterResolverTest {
 
         assertSame(servletRequest, contextParameterResolver.resolve(parameter, applicationContext));
 
-        verify(environmentContext, times(1)).get(any(Class.class));
+        verify(environmentContext).get(HttpServletRequest.class);
     }
 }

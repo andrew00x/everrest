@@ -10,9 +10,9 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
-import org.everrest.core.InitialProperties;
-import org.everrest.core.impl.EnvironmentContext;
+import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
+import org.everrest.core.method.ParameterResolver;
 
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.Context;
@@ -28,7 +28,7 @@ import javax.ws.rs.ext.Providers;
 public class ContextParameterResolver implements ParameterResolver<Context> {
 
     @Override
-    public Object resolve(org.everrest.core.Parameter parameter, ApplicationContext context) throws Exception {
+    public Object resolve(Parameter parameter, ApplicationContext context) throws Exception {
         Class<?> parameterClass = parameter.getParameterClass();
         if (parameterClass == HttpHeaders.class) {
             return context.getHttpHeaders();
@@ -42,9 +42,7 @@ public class ContextParameterResolver implements ParameterResolver<Context> {
             return context.getProviders();
         } else if (parameterClass == Application.class) {
             return context.getApplication();
-        } else if (parameterClass == InitialProperties.class) {
-            return context.getInitialProperties();
         }
-        return EnvironmentContext.getCurrent().get(parameter.getParameterClass());
+        return context.getEnvironmentContext().get(parameter.getParameterClass());
     }
 }

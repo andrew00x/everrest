@@ -12,7 +12,6 @@ package org.everrest.core.impl;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-
 import org.junit.Before;
 import org.junit.Test;
 
@@ -51,7 +50,7 @@ public class VariantsHandlerTest {
         headers.putSingle(ACCEPT_CHARSET, "utf-8,koi8;q=0.7");
         headers.putSingle(ACCEPT_ENCODING, "gzip");
 
-        ContainerRequest request = new ContainerRequest("GET", null, null, null, headers, null);
+        ContainerRequest request = new ContainerRequest("GET", null, null, null, headers, null, null);
 
         Variant variant = variantsHandler.handleVariants(request, variantList);
         assertNotNull(variant);

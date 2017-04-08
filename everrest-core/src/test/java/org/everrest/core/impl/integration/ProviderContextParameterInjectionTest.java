@@ -11,7 +11,6 @@
 package org.everrest.core.impl.integration;
 
 import com.google.common.io.CharStreams;
-
 import org.everrest.core.impl.BaseTest;
 import org.everrest.core.impl.ContainerResponse;
 import org.everrest.core.impl.EnvironmentContext;
@@ -241,7 +240,7 @@ public class ProviderContextParameterInjectionTest extends BaseTest {
         ContainerResponse response = launcher.service("GET", "/a/2", "", new MultivaluedHashMap<>(), null, responseWriter, env);
 
         assertEquals(200, response.getStatus());
-        assertEquals("MessageBodyWriterChecker: all fields injected", new String(responseWriter.getBody()));
+        assertEquals("MessageBodyWriterChecker: all fields injected", responseWriter.getBodyAsString());
     }
 
     @Test

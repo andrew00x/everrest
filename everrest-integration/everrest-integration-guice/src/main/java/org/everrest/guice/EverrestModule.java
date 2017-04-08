@@ -12,11 +12,7 @@ package org.everrest.guice;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Provider;
-import com.google.inject.ProvisionException;
-
-import org.everrest.core.ApplicationContext;
-import org.everrest.core.InitialProperties;
-import org.everrest.core.impl.EnvironmentContext;
+import org.everrest.core.impl.ApplicationContext;
 
 import javax.servlet.ServletConfig;
 import javax.ws.rs.core.Application;
@@ -26,6 +22,8 @@ import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.ext.Providers;
 
+import static com.google.common.base.Preconditions.checkState;
+
 /**
  * @author andrew00x
  */
@@ -34,21 +32,8 @@ public class EverrestModule extends AbstractModule {
         @Override
         public HttpHeaders get() {
             ApplicationContext context = ApplicationContext.getCurrent();
-            if (context == null) {
-                throw new ProvisionException("EverRest ApplicationContext is not initialized.");
-            }
+            checkState(context != null, "ApplicationContext is not initialized yet");
             return context.getHttpHeaders();
-        }
-    }
-
-    public static class InitialPropertiesProvider implements Provider<InitialProperties> {
-        @Override
-        public InitialProperties get() {
-            ApplicationContext context = ApplicationContext.getCurrent();
-            if (context == null) {
-                throw new ProvisionException("EverRest ApplicationContext is not initialized.");
-            }
-            return context.getInitialProperties();
         }
     }
 
@@ -56,9 +41,7 @@ public class EverrestModule extends AbstractModule {
         @Override
         public Providers get() {
             ApplicationContext context = ApplicationContext.getCurrent();
-            if (context == null) {
-                throw new ProvisionException("EverRest ApplicationContext is not initialized.");
-            }
+            checkState(context != null, "ApplicationContext is not initialized yet");
             return context.getProviders();
         }
     }
@@ -67,9 +50,7 @@ public class EverrestModule extends AbstractModule {
         @Override
         public Request get() {
             ApplicationContext context = ApplicationContext.getCurrent();
-            if (context == null) {
-                throw new ProvisionException("EverRest ApplicationContext is not initialized.");
-            }
+            checkState(context != null, "ApplicationContext is not initialized yet");
             return context.getRequest();
         }
     }
@@ -78,9 +59,7 @@ public class EverrestModule extends AbstractModule {
         @Override
         public SecurityContext get() {
             ApplicationContext context = ApplicationContext.getCurrent();
-            if (context == null) {
-                throw new ProvisionException("EverRest ApplicationContext is not initialized.");
-            }
+            checkState(context != null, "ApplicationContext is not initialized yet");
             return context.getSecurityContext();
         }
     }
@@ -88,11 +67,9 @@ public class EverrestModule extends AbstractModule {
     public static class ServletConfigProvider implements Provider<ServletConfig> {
         @Override
         public ServletConfig get() {
-            EnvironmentContext context = EnvironmentContext.getCurrent();
-            if (context == null) {
-                throw new ProvisionException("EverRest EnvironmentContext is not initialized.");
-            }
-            return (ServletConfig)EnvironmentContext.getCurrent().get(ServletConfig.class);
+            ApplicationContext context = ApplicationContext.getCurrent();
+            checkState(context != null, "ApplicationContext is not initialized yet");
+            return context.getEnvironmentContext().get(ServletConfig.class);
         }
     }
 
@@ -100,9 +77,7 @@ public class EverrestModule extends AbstractModule {
         @Override
         public UriInfo get() {
             ApplicationContext context = ApplicationContext.getCurrent();
-            if (context == null) {
-                throw new ProvisionException("EverRest ApplicationContext is not initialized.");
-            }
+            checkState(context != null, "ApplicationContext is not initialized yet");
             return context.getUriInfo();
         }
     }
@@ -111,9 +86,7 @@ public class EverrestModule extends AbstractModule {
         @Override
         public Application get() {
             ApplicationContext context = ApplicationContext.getCurrent();
-            if (context == null) {
-                throw new ProvisionException("EverRest ApplicationContext is not initialized.");
-            }
+            checkState(context != null, "ApplicationContext is not initialized yet");
             return context.getApplication();
         }
     }
@@ -128,7 +101,6 @@ public class EverrestModule extends AbstractModule {
     @Override
     protected void configure() {
         bind(HttpHeaders.class).toProvider(new HttpHeadersProvider());
-        bind(InitialProperties.class).toProvider(new InitialPropertiesProvider());
         bind(Providers.class).toProvider(new ProvidersProvider());
         bind(Request.class).toProvider(new RequestProvider());
         bind(SecurityContext.class).toProvider(new SecurityContextProvider());

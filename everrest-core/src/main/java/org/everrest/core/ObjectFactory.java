@@ -10,6 +10,8 @@
  *******************************************************************************/
 package org.everrest.core;
 
+import org.everrest.core.impl.ApplicationContext;
+
 /**
  * Implementation of this interface should be able provide object instance dependent of component lifecycle.
  *

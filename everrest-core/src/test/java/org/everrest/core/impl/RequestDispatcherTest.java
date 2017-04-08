@@ -10,10 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.ConfigurationProperties;
 import org.everrest.core.ObjectFactory;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.ResourceBinder;
-import org.everrest.core.impl.async.AsynchronousJob;
+import org.everrest.core.async.AsynchronousJob;
 import org.everrest.core.impl.header.AcceptMediaType;
 import org.everrest.core.impl.uri.PathSegmentImpl;
 import org.everrest.core.impl.uri.UriBuilderImpl;
@@ -26,6 +27,7 @@ import org.everrest.core.resource.SubResourceMethodDescriptor;
 import org.everrest.core.uri.UriPattern;
 import org.everrest.core.util.ResourceMethodComparator;
 import org.everrest.core.util.UriPatternComparator;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -36,10 +38,16 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.container.ContainerRequestFilter;
+import javax.ws.rs.container.ContainerResponseFilter;
+import javax.ws.rs.container.DynamicFeature;
+import javax.ws.rs.container.ResourceInfo;
+import javax.ws.rs.core.FeatureContext;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.PathSegment;
 import javax.ws.rs.core.Response;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -91,21 +99,18 @@ public class RequestDispatcherTest {
     private ApplicationContext applicationContext;
     private MethodInvoker      methodInvoker;
     private List<String>       pathParameterValues;
+    private ProviderBinder     providers;
 
     private RequestDispatcher requestDispatcher;
 
     @Before
     public void setUp() throws Exception {
         mockContainerRequest("POST");
-
         response = mock(ContainerResponse.class);
-
         resources = mock(ResourceBinder.class);
-
         methodInvoker = mock(MethodInvoker.class);
-
+        providers = mock(DefaultProviderBinder.class);
         mockApplicationContext();
-
         requestDispatcher = new RequestDispatcher(resources);
     }
 
@@ -123,7 +128,13 @@ public class RequestDispatcherTest {
         when(applicationContext.getParameterValues()).thenReturn(pathParameterValues);
         when(applicationContext.getAttributes().get("org.everrest.lifecycle.PerRequest")).thenReturn(newArrayList());
         when(applicationContext.getBaseUriBuilder()).thenReturn(UriBuilderImpl.fromPath("http://localhost:8080/servlet"));
+        when(applicationContext.getProviders()).thenReturn(providers);
         ApplicationContext.setCurrent(applicationContext);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        ApplicationContext.setCurrent(null);
     }
 
     @Test
@@ -622,6 +633,58 @@ public class RequestDispatcherTest {
         assertEquals("foo", argumentCaptor.getValue().getEntity());
     }
 
+    @Test
+    public void appliesRequestFilters() throws Exception {
+        ContainerRequestFilter requestFilter = mock(ContainerRequestFilter.class);
+        when(providers.getContainerRequestFilters(new Annotation[0], true)).thenReturn(newArrayList(requestFilter));
+        requestDispatcher.dispatch(request, response);
+
+        verify(requestFilter).filter(request);
+    }
+
+    @Test
+    public void appliesResponseFilters() throws Exception {
+        ContainerResponseFilter responseFilter = mock(ContainerResponseFilter.class);
+        when(providers.getContainerResponseFilters(new Annotation[0])).thenReturn(newArrayList(responseFilter));
+
+        Resource resource = new Resource();
+        ResourceMethodDescriptor resourceMethod = mockResourceMethod(Resource.class.getMethod("echo", String.class), "POST", newArrayList(WILDCARD_TYPE), newArrayList(WILDCARD_TYPE));
+        ObjectFactory resourceFactory = mockResourceFactory(resource, newArrayList(resourceMethod), newArrayList(), newArrayList());
+        matchRequestPath();
+        when(applicationContext.getPathSegments(false)).thenReturn(createPathSegments("a", "b"));
+        when(resources.getMatchedResource(eq("/a/b"), anyList())).thenReturn(resourceFactory);
+
+        requestDispatcher.dispatch(request, response);
+
+        verify(responseFilter).filter(request, response);
+    }
+
+    @Test
+    public void appliesDynamicFeatures() throws Exception {
+        DynamicFeature dynamicFeature = mock(DynamicFeature.class);
+        when(providers.getDynamicFeatures()).thenReturn(newArrayList(dynamicFeature));
+
+        Resource resource = new Resource();
+        ResourceMethodDescriptor resourceMethod = mockResourceMethod(Resource.class.getMethod("echo", String.class), "POST", newArrayList(WILDCARD_TYPE), newArrayList(WILDCARD_TYPE));
+        ResourceInfo resourceInfo = mock(ResourceInfo.class);
+        when(resourceMethod.getResourceInfo()).thenReturn(resourceInfo);
+        ObjectFactory resourceFactory = mockResourceFactory(resource, newArrayList(resourceMethod), newArrayList(), newArrayList());
+        matchRequestPath();
+        when(applicationContext.getPathSegments(false)).thenReturn(createPathSegments("a", "b"));
+        when(resources.getMatchedResource(eq("/a/b"), anyList())).thenReturn(resourceFactory);
+
+        ConfigurationProperties configuration = mock(ConfigurationProperties.class);
+        when(applicationContext.getConfigurationProperties()).thenReturn(configuration);
+
+        requestDispatcher.dispatch(request, response);
+
+        ArgumentCaptor<FeatureContext> featureContextCaptor = ArgumentCaptor.forClass(FeatureContext.class);
+        verify(dynamicFeature).configure(eq(resourceInfo), featureContextCaptor.capture());
+        DefaultFeatureContext featureContext = (DefaultFeatureContext) featureContextCaptor.getValue();
+        assertSame(providers, featureContext.getProviders());
+        assertSame(configuration, featureContext.getConfigurationProperties());
+    }
+
     private List<PathSegment> createPathSegments(String... segments) {
         return Arrays.stream(segments).map(s -> PathSegmentImpl.fromString(s, false)).collect(toList());
     }
@@ -698,6 +761,7 @@ public class RequestDispatcherTest {
         when(resourceMethod.getHttpMethod()).thenReturn(httpMethod);
         when(resourceMethod.consumes()).thenReturn(consumes);
         when(resourceMethod.produces()).thenReturn(produces);
+        when(resourceMethod.getNameBindingAnnotations()).thenReturn(new Annotation[0]);
         return resourceMethod;
     }
 

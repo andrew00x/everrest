@@ -11,7 +11,6 @@
 package org.everrest.groovy.servlet;
 
 import org.codehaus.groovy.control.CompilationFailedException;
-import org.everrest.core.Filter;
 import org.everrest.core.servlet.EverrestServletContextInitializer;
 import org.everrest.groovy.DefaultGroovyResourceLoader;
 import org.everrest.groovy.GroovyClassLoaderProvider;
@@ -26,12 +25,13 @@ import javax.ws.rs.Path;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.ext.Provider;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
+
+import static org.everrest.core.util.ReflectionUtils.getFirstPresentAnnotation;
 
 /**
  * @author andrew00x
@@ -73,7 +73,7 @@ public class GroovyEverrestServletContextInitializer extends EverrestServletCont
     @Override
     public Application getApplication() {
         final String groovyApplicationFQN = getParameter(EVERREST_GROOVY_APPLICATION);
-        final boolean scan = getBoolean(EVERREST_GROOVY_SCAN_COMPONENTS, false);
+        final boolean scan = getBooleanParameter(EVERREST_GROOVY_SCAN_COMPONENTS, false);
         Application groovyApplication = null;
 
         if (groovyApplicationFQN != null) {
@@ -91,13 +91,7 @@ public class GroovyEverrestServletContextInitializer extends EverrestServletCont
         } else if (scan) {
             try {
                 final Set<Class<?>> scanned = new HashSet<>();
-                final Class[] jaxrsAnnotations = new Class[]{Path.class, Provider.class, Filter.class};
-                final URLFilter filter = new URLFilter() {
-                    @Override
-                    public boolean accept(URL url) {
-                        return url.getPath().endsWith(".groovy");
-                    }
-                };
+                final URLFilter filter = url -> url.getPath().endsWith(".groovy");
 
                 for (int i = 0; i < groovyClassPath.length; i++) {
                     final URL path = groovyClassPath[i];
@@ -115,12 +109,9 @@ public class GroovyEverrestServletContextInitializer extends EverrestServletCont
                             Class[] classes = classLoaderProvider.getGroovyClassLoader().parseClasses(files);
                             for (int k = 0; k < classes.length; k++) {
                                 Class clazz = classes[k];
-                                if (findAnnotation(clazz, jaxrsAnnotations)) {
-                                    boolean added = scanned.add(clazz);
-                                    if (added) {
-                                        if (LOG.isDebugEnabled()) {
-                                            LOG.debug("Add class : {}", clazz);
-                                        }
+                                if (getFirstPresentAnnotation(clazz, Path.class, Provider.class) != null) {
+                                    if (scanned.add(clazz)) {
+                                        LOG.debug("Add class : {}", clazz);
                                     } else {
                                         LOG.warn("Skip duplicated class: {}", clazz);
                                     }
@@ -142,14 +133,5 @@ public class GroovyEverrestServletContextInitializer extends EverrestServletCont
             }
         }
         return groovyApplication;
-    }
-
-    private boolean findAnnotation(Class<?> clazz, Class<? extends Annotation>... annClasses) {
-        for (Class<? extends Annotation> ac : annClasses) {
-            if (clazz.getAnnotation(ac) != null) {
-                return true;
-            }
-        }
-        return false;
     }
 }

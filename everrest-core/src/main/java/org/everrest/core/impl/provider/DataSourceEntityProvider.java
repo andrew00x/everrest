@@ -11,13 +11,13 @@
 package org.everrest.core.impl.provider;
 
 import com.google.common.io.ByteStreams;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.FileCollector;
 import org.everrest.core.provider.EntityProvider;
 
 import javax.activation.DataSource;
 import javax.activation.FileDataSource;
+import javax.annotation.Priority;
 import javax.mail.util.ByteArrayDataSource;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
@@ -33,10 +33,14 @@ import java.lang.reflect.Type;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static org.everrest.core.impl.ServerConfigurationProperties.DEFAULT_MAX_BUFFER_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_MAX_BUFFER_SIZE;
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
 
 /**
  * @author andrew00x
  */
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 public class DataSourceEntityProvider implements EntityProvider<DataSource> {
 
@@ -100,7 +104,7 @@ public class DataSourceEntityProvider implements EntityProvider<DataSource> {
         byte[] buffer = new byte[8192];
 
         ApplicationContext context = ApplicationContext.getCurrent();
-        int bufferSize = context.getEverrestConfiguration().getMaxBufferSize();
+        int bufferSize = context.getConfigurationProperties().getIntegerProperty(EVERREST_MAX_BUFFER_SIZE, DEFAULT_MAX_BUFFER_SIZE);
         ByteArrayOutputStream bos = new ByteArrayOutputStream(bufferSize);
 
         int bytesNum;

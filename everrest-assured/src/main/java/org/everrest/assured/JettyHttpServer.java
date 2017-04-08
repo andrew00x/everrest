@@ -24,13 +24,11 @@ import org.eclipse.jetty.util.security.Constraint;
 import org.eclipse.jetty.util.security.Credential;
 import org.eclipse.jetty.util.security.Password;
 import org.everrest.assured.util.AvailablePortFinder;
-import org.everrest.assured.util.IoUtil;
 import org.everrest.core.DependencySupplier;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.ResourceBinder;
-import org.everrest.core.impl.ApplicationProviderBinder;
-import org.everrest.core.impl.ApplicationProviderBinderHelper;
 import org.everrest.core.impl.ApplicationPublisher;
-import org.everrest.core.impl.ResourceBinderImpl;
+import org.everrest.core.impl.provider.ServerEmbeddedProvidersFeature;
 import org.everrest.core.servlet.EverrestInitializedListener;
 import org.everrest.core.servlet.EverrestServlet;
 import org.everrest.groovy.BaseResourceId;
@@ -45,27 +43,27 @@ import java.lang.reflect.Method;
 import java.util.EventListener;
 import java.util.Random;
 
+import static org.everrest.assured.util.IoUtil.getResource;
+
 public class JettyHttpServer {
+    private static final Logger LOG = LoggerFactory.getLogger(JettyHttpServer.class);
 
-    public static final  String UNSECURE_REST         = "/rest";
-    public static final  String UNSECURE_PATH_SPEC    = UNSECURE_REST + "/*";
-    public static final  String SECURE_PATH           = "/private";
-    public static final  String SECURE_REST           = UNSECURE_REST + SECURE_PATH;
-    public static final  String SECURE_PATH_SPEC      = SECURE_REST + "/*";
-    public final static  String ADMIN_USER_NAME       = "cldadmin";
-    public final static  String ADMIN_USER_PASSWORD   = "tomcat";
-    public final static  String MANAGER_USER_NAME     = "cldmanager";
-    public final static  String MANAGER_USER_PASSWORD = "manager";
-    public final static  String UNAUTHORIZED_USER     = "user";
-    private static final Logger LOG                   = LoggerFactory.getLogger(JettyHttpServer.class);
-    private final static Random portRandomizer        = new Random();
-    protected final int                   port;
-    protected final Server                server;
-    protected       ServletContextHandler context;
+    public static final String UNSECURE_REST = "/rest";
+    public static final String UNSECURE_PATH_SPEC = UNSECURE_REST + "/*";
+    public static final String SECURE_PATH = "/private";
+    public static final String SECURE_REST = UNSECURE_REST + SECURE_PATH;
+    public static final String SECURE_PATH_SPEC = SECURE_REST + "/*";
+    public final static String ADMIN_USER_NAME = "cldadmin";
+    public final static String ADMIN_USER_PASSWORD = "tomcat";
+    public final static String MANAGER_USER_NAME = "cldmanager";
+    public final static String MANAGER_USER_PASSWORD = "manager";
+    public final static String UNAUTHORIZED_USER = "user";
+    private static final Random portRandomizer = new Random();
 
-    /**
-     *
-     */
+    protected final int port;
+    protected final Server server;
+    protected ServletContextHandler context;
+
     public JettyHttpServer() {
         this(AvailablePortFinder.getNextAvailable(10000 + portRandomizer.nextInt(2000)));
     }
@@ -73,7 +71,6 @@ public class JettyHttpServer {
     public JettyHttpServer(int port) {
         this.port = port;
         this.server = new Server(port);
-        this.context = null;
     }
 
     public int getPort() {
@@ -122,9 +119,9 @@ public class JettyHttpServer {
                                           "system/manager"
                              });
         loginService.putUser(MANAGER_USER_NAME, new Password(MANAGER_USER_PASSWORD), new String[]{"cloud-admin",
-                                                                                                  "user",
-                                                                                                  "temp_user",
-                                                                                                  "users"});
+                "user",
+                "temp_user",
+                "users"});
 
         securityHandler.setLoginService(loginService);
         securityHandler.setAuthenticator(new BasicAuthenticator());
@@ -134,15 +131,24 @@ public class JettyHttpServer {
         server.setHandler(handler);
 
         server.start();
-        ResourceBinder binder =
-                (ResourceBinder)context.getServletContext().getAttribute(ResourceBinder.class.getName());
-        DependencySupplier dependencies =
-                (DependencySupplier)context.getServletContext().getAttribute(DependencySupplier.class.getName());
-        GroovyResourcePublisher groovyPublisher = new GroovyResourcePublisher(binder, dependencies);
-        context.getServletContext().setAttribute(GroovyResourcePublisher.class.getName(), groovyPublisher);
 
+        ResourceBinder resources = getResourceBinder();
+        DependencySupplier dependencies = (DependencySupplier) context.getServletContext().getAttribute(DependencySupplier.class.getName());
+        GroovyResourcePublisher groovyPublisher = new GroovyResourcePublisher(resources, dependencies);
+        context.getServletContext().setAttribute(GroovyResourcePublisher.class.getName(), groovyPublisher);
     }
 
+    public ResourceBinder getResourceBinder() {
+        return (ResourceBinder) context.getServletContext().getAttribute(ResourceBinder.class.getName());
+    }
+
+    public ProviderBinder getProviderBinder() {
+        return (ProviderBinder) context.getServletContext().getAttribute(ProviderBinder.class.getName());
+    }
+
+    public GroovyResourcePublisher getGroovyResourcePublisher() {
+        return (GroovyResourcePublisher) context.getServletContext().getAttribute(GroovyResourcePublisher.class.getName());
+    }
 
     public void stop() throws Exception {
         context = null;
@@ -150,23 +156,20 @@ public class JettyHttpServer {
     }
 
     public void addUser(String userName, Credential credential, String[] roles) {
-        ((HashLoginService)context.getSecurityHandler().getLoginService()).putUser(userName, credential, roles);
+        ((HashLoginService) context.getSecurityHandler().getLoginService()).putUser(userName, credential, roles);
     }
 
-    public void publish(Application application){
-        ResourceBinder binder = (ResourceBinder)context.getServletContext().getAttribute(ResourceBinder.class.getName());
-        ApplicationProviderBinder providerBinder =
-                (ApplicationProviderBinder)context.getServletContext().getAttribute(ApplicationProviderBinder.class.getName());
-        ApplicationPublisher applicationPublisher = new ApplicationPublisher(binder, providerBinder);
+    public void publish(Application application) {
+        ResourceBinder resources = getResourceBinder();
+        ProviderBinder providers = getProviderBinder();
+        ApplicationPublisher applicationPublisher = new ApplicationPublisher(resources, providers);
         applicationPublisher.publish(application);
     }
 
     public void publishPerRequestGroovyScript(String resourcePath, String name) {
-        GroovyResourcePublisher groovyPublisher =
-                (GroovyResourcePublisher)context.getServletContext().getAttribute(GroovyResourcePublisher.class.getName());
-
+        GroovyResourcePublisher groovyPublisher = getGroovyResourcePublisher();
         BaseResourceId publishedResourceId = new BaseResourceId(name);
-        groovyPublisher.publishPerRequest(IoUtil.getResource(resourcePath), publishedResourceId, null, null, null);
+        groovyPublisher.publishPerRequest(getResource(resourcePath), publishedResourceId, null, null, null);
     }
 
     public void addFilter(Filter filter, String pathSpec) {
@@ -177,16 +180,12 @@ public class JettyHttpServer {
         context.addFilter(filterClass, pathSpec, null);
     }
 
-
     public void resetFilter() {
         context.getServletHandler().setFilters(null);
-
         try {
-
             Field filterMappings = ServletHandler.class.getDeclaredField("_filterMappings");
             filterMappings.setAccessible(true);
             filterMappings.set(context.getServletHandler(), null);
-
 
             Method updateMappingsMethod = ServletHandler.class.getDeclaredMethod("updateMappings");
             updateMappingsMethod.setAccessible(true);
@@ -194,23 +193,18 @@ public class JettyHttpServer {
         } catch (ReflectiveOperationException e) {
             LOG.error(e.getLocalizedMessage(), e);
         }
-
     }
 
-    /** @return the context */
     public ServletContextHandler getContext() {
         return context;
     }
 
-    public void resetFactories() {
+    public void resetComponentBindings() {
         LOG.debug("reset >>");
-        ResourceBinder binder = (ResourceBinder)context.getServletContext().getAttribute(ResourceBinder.class.getName());
-        ((ResourceBinderImpl)binder).clear();
-        ApplicationProviderBinder providerBinder =
-                (ApplicationProviderBinder)context.getServletContext().getAttribute(ApplicationProviderBinder.class.getName());
-
-        ApplicationProviderBinderHelper.resetApplicationProviderBinder(providerBinder);
+        ResourceBinder resources = getResourceBinder();
+        resources.clear();
+        ProviderBinder providers = getProviderBinder();
+        providers.clear();
+        providers.register(new ServerEmbeddedProvidersFeature());
     }
-
-
 }

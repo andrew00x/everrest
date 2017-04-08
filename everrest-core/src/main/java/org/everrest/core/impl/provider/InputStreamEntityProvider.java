@@ -11,10 +11,10 @@
 package org.everrest.core.impl.provider;
 
 import com.google.common.io.ByteStreams;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.provider.EntityProvider;
 
+import javax.annotation.Priority;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.ext.Provider;
@@ -24,9 +24,14 @@ import java.io.OutputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 
+import static org.everrest.core.impl.ServerConfigurationProperties.DEFAULT_MAX_BUFFER_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_MAX_BUFFER_SIZE;
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
+
 /**
  * @author andrew00x
  */
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 public class InputStreamEntityProvider implements EntityProvider<InputStream> {
 
@@ -44,7 +49,7 @@ public class InputStreamEntityProvider implements EntityProvider<InputStream> {
                                 InputStream entityStream) throws IOException {
         ApplicationContext context = ApplicationContext.getCurrent();
         if (context.isAsynchronous()) {
-            int bufferSize = context.getEverrestConfiguration().getMaxBufferSize();
+            int bufferSize = context.getConfigurationProperties().getIntegerProperty(EVERREST_MAX_BUFFER_SIZE, DEFAULT_MAX_BUFFER_SIZE);
             return IOHelper.bufferStream(entityStream, bufferSize);
         }
         return entityStream;

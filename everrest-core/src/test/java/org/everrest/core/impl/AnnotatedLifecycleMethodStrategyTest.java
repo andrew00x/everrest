@@ -10,8 +10,6 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -24,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.collect.Lists.newArrayList;
+import static org.everrest.core.$matchers.ExceptionMatchers.wrappedExceptionWithMessage;
 import static org.junit.Assert.assertTrue;
 
 public class AnnotatedLifecycleMethodStrategyTest {
@@ -122,30 +121,14 @@ public class AnnotatedLifecycleMethodStrategyTest {
 
     @Test
     public void wrapsRuntimeExceptionThrownByInitMethodWithInternalException() {
-        thrown.expect(lifecycleMethodInvocationExceptionMatcher("init fails"));
+        thrown.expect(wrappedExceptionWithMessage(RuntimeException.class, InternalException.class, "init fails"));
         lifecycleMethodStrategy.invokeInitializeMethods(new LifeCycleMethodsThrowsRuntimeException());
     }
 
     @Test
     public void wrapsRuntimeExceptionThrownByDestroyMethodWithInternalException() {
-        thrown.expect(lifecycleMethodInvocationExceptionMatcher("destroy fails"));
+        thrown.expect(wrappedExceptionWithMessage(RuntimeException.class, InternalException.class, "destroy fails"));
         lifecycleMethodStrategy.invokeDestroyMethods(new LifeCycleMethodsThrowsRuntimeException());
-    }
-
-    private BaseMatcher<Throwable> lifecycleMethodInvocationExceptionMatcher(String expectedMessage) {
-        return new BaseMatcher<Throwable>() {
-            @Override
-            public boolean matches(Object item) {
-                return item instanceof InternalException
-                       && ((InternalException) item).getCause() instanceof RuntimeException
-                       && expectedMessage.equals(((InternalException) item).getCause().getMessage());
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(String.format("Expected exception with message: %s", expectedMessage));
-            }
-        };
     }
 
 }

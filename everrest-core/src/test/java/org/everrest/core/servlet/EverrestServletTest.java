@@ -16,8 +16,6 @@ import org.everrest.core.impl.EnvironmentContext;
 import org.everrest.core.impl.EverrestProcessor;
 import org.everrest.core.tools.ErrorPages;
 import org.everrest.core.tools.WebApplicationDeclaredRoles;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -32,6 +30,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 import static java.util.Collections.emptyEnumeration;
+import static org.everrest.core.$matchers.ExceptionMatchers.exceptionSameInstance;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.mockito.Matchers.isA;
@@ -89,7 +88,7 @@ public class EverrestServletTest {
         IOException ioException = new IOException();
         doThrow(ioException).when(everrestProcessor).process(isA(ServletContainerRequest.class), isA(ContainerResponse.class), isA(EnvironmentContext.class));
 
-        thrown.expect(exceptionSameInstanceMatcher(ioException));
+        thrown.expect(exceptionSameInstance(ioException));
         everrestServlet.service(request, response);
     }
 
@@ -101,7 +100,7 @@ public class EverrestServletTest {
         doThrow(unhandledException).when(everrestProcessor).process(isA(ServletContainerRequest.class), isA(ContainerResponse.class), isA(EnvironmentContext.class));
 
         thrown.expect(ServletException.class);
-        thrown.expectCause(exceptionSameInstanceMatcher(exception));
+        thrown.expectCause(exceptionSameInstance(exception));
         everrestServlet.service(request, response);
     }
 
@@ -113,19 +112,5 @@ public class EverrestServletTest {
 
         everrestServlet.service(request, response);
         verify(response).sendError(403);
-    }
-
-    private BaseMatcher<Throwable> exceptionSameInstanceMatcher(Exception expectedException) {
-        return new BaseMatcher<Throwable>() {
-            @Override
-            public boolean matches(Object item) {
-                return item == expectedException;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(String.format("Expected exception: %s", expectedException));
-            }
-        };
     }
 }

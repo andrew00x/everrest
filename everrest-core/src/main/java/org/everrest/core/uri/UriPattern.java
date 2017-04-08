@@ -10,18 +10,12 @@
  *******************************************************************************/
 package org.everrest.core.uri;
 
-import org.everrest.core.util.UriPatternComparator;
-
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class UriPattern {
-    // TODO: remove static, create comparator when need it
-    public static final Comparator<UriPattern> URIPATTERN_COMPARATOR = new UriPatternComparator();
-
     /** Should be added in URI pattern regular expression. */
     private static final String URI_PATTERN_TAIL = "(/.*)?";
 

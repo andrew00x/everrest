@@ -11,7 +11,6 @@
 package org.everrest.core.impl.resource;
 
 import com.google.common.base.MoreObjects;
-
 import org.everrest.core.Parameter;
 import org.everrest.core.resource.ResourceDescriptor;
 import org.everrest.core.resource.SubResourceMethodDescriptor;
@@ -33,22 +32,14 @@ public class SubResourceMethodDescriptorImpl extends ResourceMethodDescriptorImp
     /**
      * Constructs new instance of {@link SubResourceMethodDescriptor}.
      *
-     * @param path
-     *         See {@link PathValue}
-     * @param method
-     *         See {@link Method}
-     * @param httpMethod
-     *         HTTP request method designator
-     * @param parameters
-     *         list of method parameters. See {@link Parameter}
-     * @param parentResource
-     *         parent resource for this method
-     * @param consumes
-     *         list of media types which this method can consume
-     * @param produces
-     *         list of media types which this method can produce
-     * @param additional
-     *         set of additional (not JAX-RS annotations)
+     * @param path                   See {@link PathValue}
+     * @param method                 See {@link Method}
+     * @param httpMethod             HTTP request method designator
+     * @param parameters             list of method parameters. See {@link Parameter}
+     * @param parentResource         parent resource for this method
+     * @param consumes               list of media types which this method can consume
+     * @param produces               list of media types which this method can produce
+     * @param nameBindingAnnotations name binding annotations, see {@link javax.ws.rs.NameBinding}
      */
     SubResourceMethodDescriptorImpl(PathValue path,
                                     Method method,
@@ -57,14 +48,14 @@ public class SubResourceMethodDescriptorImpl extends ResourceMethodDescriptorImp
                                     ResourceDescriptor parentResource,
                                     List<MediaType> consumes,
                                     List<MediaType> produces,
-                                    Annotation[] additional) {
+                                    Annotation[] nameBindingAnnotations) {
         super(method,
               httpMethod,
               parameters,
               parentResource,
               consumes,
               produces,
-              additional);
+              nameBindingAnnotations);
         this.path = path;
         this.uriPattern = new UriPattern(path.getPath());
     }
@@ -88,6 +79,7 @@ public class SubResourceMethodDescriptorImpl extends ResourceMethodDescriptorImp
                           .add("produced media types", produces())
                           .add("consumed media types", consumes())
                           .add("returned type", getResponseType())
+                          .add("binding", getNameBindingAnnotations())
                           .toString();
     }
 }

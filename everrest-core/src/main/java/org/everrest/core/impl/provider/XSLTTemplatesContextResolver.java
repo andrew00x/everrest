@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentMap;
 @Produces({MediaType.APPLICATION_XML, "application/*+xml", MediaType.TEXT_XML, "text/*+xml"})
 public class XSLTTemplatesContextResolver implements ContextResolver<XSLTTemplatesContextResolver> {
     /** All registered templates. */
-    private final ConcurrentMap<String, Templates> templatesMap = new ConcurrentHashMap<String, Templates>();
+    private final ConcurrentMap<String, Templates> templatesMap = new ConcurrentHashMap<>();
     private final TemplatesParser templatesParser;
 
     public XSLTTemplatesContextResolver(TemplatesParser templatesParser) {
@@ -85,7 +85,7 @@ public class XSLTTemplatesContextResolver implements ContextResolver<XSLTTemplat
      *
      * @param name
      *         templates' name
-     * @return templates or <code>null</code> if no templates mapped to given name
+     * @return templates or {@code null} if no templates mapped to given name
      */
     public Templates getTemplates(String name) {
         return templatesMap.get(name);

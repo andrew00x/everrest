@@ -20,7 +20,6 @@ import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 
 import static org.junit.Assert.assertArrayEquals;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,7 +42,7 @@ public class ServletContainerResponseWriterTest {
         TstServletOutputStream output = new TstServletOutputStream();
         when(httpServletResponse.getOutputStream()).thenReturn(output);
         when(containerResponse.getEntity()).thenReturn("hello world");
-        when(containerResponse.getHttpHeaders()).thenReturn(new MultivaluedHashMap<>());
+        when(containerResponse.getHeaders()).thenReturn(new MultivaluedHashMap<>());
 
         servletContainerResponseWriter.writeBody(containerResponse, new StringEntityProvider());
 
@@ -52,14 +51,14 @@ public class ServletContainerResponseWriterTest {
 
     @Test
     public void writesStatusAndHeaders() throws Exception {
-        MultivaluedMap<String, Object> responseHeaders = new MultivaluedHashMap<>();
+        MultivaluedMap<String, String> responseHeaders = new MultivaluedHashMap<>();
         responseHeaders.putSingle("content-type", "text/plain");
         when(containerResponse.getStatus()).thenReturn(200);
-        when(containerResponse.getHttpHeaders()).thenReturn(responseHeaders);
+        when(containerResponse.getStringHeaders()).thenReturn(responseHeaders);
 
         servletContainerResponseWriter.writeHeaders(containerResponse);
 
-        verify(httpServletResponse).setStatus(eq(200));
-        verify(httpServletResponse).addHeader(eq("content-type"), eq("text/plain"));
+        verify(httpServletResponse).setStatus(200);
+        verify(httpServletResponse).addHeader("content-type", "text/plain");
     }
 }

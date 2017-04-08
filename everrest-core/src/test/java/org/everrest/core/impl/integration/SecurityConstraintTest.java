@@ -13,13 +13,10 @@ package org.everrest.core.impl.integration;
 import com.tngtech.java.junit.dataprovider.DataProvider;
 import com.tngtech.java.junit.dataprovider.DataProviderRunner;
 import com.tngtech.java.junit.dataprovider.UseDataProvider;
-
 import org.everrest.core.impl.BaseTest;
 import org.everrest.core.impl.ContainerResponse;
 import org.everrest.core.impl.EnvironmentContext;
-import org.everrest.core.impl.method.filter.SecurityConstraint;
 import org.everrest.core.tools.SimpleSecurityContext;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -166,18 +163,6 @@ public class SecurityConstraintTest extends BaseTest {
                 {Resource2.class, "/b/all", userSecCtx, 204},
                 {Resource2.class, "/b/all", adminSecCtx, 204}
         };
-    }
-
-    @Before
-    public void setUp() throws Exception {
-        super.setUp();
-        // Be sure security is on.
-        processor.addApplication(new Application() {
-            @Override
-            public Set<Object> getSingletons() {
-                return newHashSet(new SecurityConstraint());
-            }
-        });
     }
 
     @UseDataProvider("data")

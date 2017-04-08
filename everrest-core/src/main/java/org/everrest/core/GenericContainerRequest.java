@@ -12,15 +12,15 @@ package org.everrest.core;
 
 import org.everrest.core.impl.header.AcceptMediaType;
 
+import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Request;
 import javax.ws.rs.core.SecurityContext;
-import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 
-public interface GenericContainerRequest extends Request, SecurityContext, ExtHttpHeaders {
+public interface GenericContainerRequest extends Request, SecurityContext, ContainerRequestContext, ExtHttpHeaders {
     /**
      * Get read-only list of cookie header.
      *
@@ -38,44 +38,11 @@ public interface GenericContainerRequest extends Request, SecurityContext, ExtHt
      */
     MediaType getAcceptableMediaType(List<MediaType> mediaTypes);
 
-    /**
-     * Get entity body represented by InputStream.
-     *
-     * @return entity data stream or null if no entity in request
-     */
-    InputStream getEntityStream();
-
     /** @return full request URI include query string and fragment */
     URI getRequestUri();
 
     /** @return common part of URI string for all services, e. g. servlet path */
     URI getBaseUri();
-
-    /**
-     * Set HTTP method.
-     *
-     * @param method
-     *         HTTP method, i. e. GET, POST, etc
-     */
-    void setMethod(String method);
-
-    /**
-     * Set entity body InputStream.
-     *
-     * @param entityStream
-     *         request message body as stream
-     */
-    void setEntityStream(InputStream entityStream);
-
-    /**
-     * Set new request URI and base URI.
-     *
-     * @param requestUri
-     *         request URI
-     * @param baseUri
-     *         base URI
-     */
-    void setUris(URI requestUri, URI baseUri);
 
     /**
      * Set list of cookie headers.
@@ -98,4 +65,6 @@ public interface GenericContainerRequest extends Request, SecurityContext, ExtHt
      * media type, see {@link AcceptMediaType#DEFAULT}.
      */
     List<AcceptMediaType> getAcceptMediaTypeList();
+
+    ConfigurationProperties getProperties();
 }

@@ -10,9 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.impl.async;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.GenericContainerRequest;
-import org.everrest.core.impl.ProviderBinder;
+import org.everrest.core.ProviderBinder;
+import org.everrest.core.async.AsynchronousJob;
+import org.everrest.core.async.AsynchronousJobPool;
+import org.everrest.core.impl.ApplicationContext;
 
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -22,7 +24,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericEntity;
-import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
@@ -32,6 +33,14 @@ import javax.ws.rs.ext.Providers;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
+
+import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static javax.ws.rs.core.HttpHeaders.LOCATION;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static javax.ws.rs.core.MediaType.TEXT_PLAIN;
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import static javax.ws.rs.core.Response.Status.FORBIDDEN;
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 /**
  * Service to get results of invocation asynchronous job from {@link AsynchronousJobPool}. Instance of AsynchronousJobPool obtained in
@@ -50,9 +59,9 @@ public class AsynchronousJobService {
         final AsynchronousJobPool pool = getJobPool();
         final AsynchronousJob job = pool.getJob(jobId);
         if (job == null) {
-            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
+            throw new WebApplicationException(Response.status(NOT_FOUND)
                                                       .entity(String.format("Job %d not found. ", jobId))
-                                                      .type(MediaType.TEXT_PLAIN).build());
+                                                      .type(TEXT_PLAIN).build());
         }
 
         // Get original request which initialize asynchronous job.
@@ -76,9 +85,9 @@ public class AsynchronousJobService {
                 } else if (Response.class.isAssignableFrom(result.getClass())) {
                     response = (Response)result;
 
-                    if (response.getEntity() != null && response.getMetadata().getFirst(HttpHeaders.CONTENT_TYPE) == null) {
+                    if (response.getEntity() != null && response.getMetadata().getFirst(CONTENT_TYPE) == null) {
                         MediaType contentType = request.getAcceptableMediaType(job.getResourceMethod().produces());
-                        response.getMetadata().putSingle(HttpHeaders.CONTENT_TYPE, contentType);
+                        response.getMetadata().putSingle(CONTENT_TYPE, contentType);
                     }
                 } else {
                     MediaType contentType = request.getAcceptableMediaType(job.getResourceMethod().produces());
@@ -92,20 +101,20 @@ public class AsynchronousJobService {
                 return null;
             } else {
                 final String jobUri = uriInfo.getRequestUri().toString();
-                return Response.status(Response.Status.ACCEPTED)
-                               .header(HttpHeaders.LOCATION, jobUri)
+                return Response.status(ACCEPTED)
+                               .header(LOCATION, jobUri)
                                .entity(jobUri)
-                               .type(MediaType.TEXT_PLAIN).build();
+                               .type(TEXT_PLAIN).build();
             }
         } else {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN)
+            throw new WebApplicationException(Response.status(FORBIDDEN)
                                                       .entity(String.format("GET: (%d) - Operation not permitted. ", jobId))
-                                                      .type(MediaType.TEXT_PLAIN).build());
+                                                      .type(TEXT_PLAIN).build());
         }
     }
 
     @GET
-    @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
+    @Produces({APPLICATION_JSON, TEXT_PLAIN})
     public GenericEntity<List<AsynchronousProcess>> list() {
         AsynchronousJobPool pool = getJobPool();
         List<AsynchronousJob> jobs = pool.getAll();
@@ -129,9 +138,9 @@ public class AsynchronousJobService {
         AsynchronousJobPool pool = getJobPool();
         AsynchronousJob job = pool.getJob(jobId);
         if (job == null) {
-            throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND)
+            throw new WebApplicationException(Response.status(NOT_FOUND)
                                                       .entity(String.format("Job %d not found. ", jobId))
-                                                      .type(MediaType.TEXT_PLAIN).build());
+                                                      .type(TEXT_PLAIN).build());
         }
 
         if (securityContext.isUserInRole("administrators")
@@ -139,25 +148,25 @@ public class AsynchronousJobService {
                                 securityContext.getUserPrincipal())) {
             pool.removeJob(jobId);
         } else {
-            throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN)
+            throw new WebApplicationException(Response.status(FORBIDDEN)
                                                       .entity(String.format("DELETE: (%d) - Operation not permitted. ", jobId))
-                                                      .type(MediaType.TEXT_PLAIN).build());
+                                                      .type(TEXT_PLAIN).build());
         }
     }
 
-    private boolean principalMatched(Principal principal1, Principal principal2) {
-        if (principal1 == null) {
+    private boolean principalMatched(Principal jobCreatorPrincipal, Principal currentPrincipal) {
+        if (jobCreatorPrincipal == null) {
             return true;
-        } else {
-            if (principal2 != null) {
-                String name1 = principal1.getName();
-                String name2 = principal2.getName();
-                if (name1 == null && name2 == null || name1 != null && name1.equals(name2)) {
-                    return true;
-                }
-            }
-            return false;
         }
+        if (currentPrincipal != null) {
+            String creatorName = jobCreatorPrincipal.getName();
+            String currentUserName = currentPrincipal.getName();
+            if (creatorName == null && currentUserName == null
+                    || creatorName != null && creatorName.equals(currentUserName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private AsynchronousJobPool getJobPool() {

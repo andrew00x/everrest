@@ -31,10 +31,11 @@ import static javax.websocket.RemoteEndpoint.Async;
 public class MessageSender {
 
     private static final Logger LOG                       = LoggerFactory.getLogger(MessageSender.class);
-    // todo: make configurable
-    private final        int    maxNumberOfMessageInQueue = 1_000_000_000;
+
+    public static final String MAX_NUMBER_OF_MESSAGES_IN_QUEUE = "everrest.MaxNumberOfMessagesInQueue";
 
     private final Session                    session;
+    private final int                        maxNumberOfMessagesInQueue;
     private final Async                      async;
     private final LinkedList<MessageWrapper> sendQueue;
     private final SendHandler                sendHandler;
@@ -42,8 +43,9 @@ public class MessageSender {
     private final    Object  lock              = new Object();
     private volatile boolean sendingInProgress = false;
 
-    public MessageSender(Session session) {
+    public MessageSender(Session session, int maxNumberOfMessagesInQueue) {
         this.session = session;
+        this.maxNumberOfMessagesInQueue = maxNumberOfMessagesInQueue;
         async = session.getAsyncRemote();
         sendQueue = new LinkedList<>();
         sendHandler = new MessageSendHandler();
@@ -80,8 +82,8 @@ public class MessageSender {
 
     private boolean isMaxQueueCapacityExceeded() {
         final int newSize = sendQueue.size() + 1;
-        LOG.debug(" SendQueue size {} ,  maxNumberOfMessageInQueue {}", newSize, maxNumberOfMessageInQueue);
-        return newSize > maxNumberOfMessageInQueue;
+        LOG.debug(" SendQueue size {} ,  maxNumberOfMessageInQueue {}", newSize, maxNumberOfMessagesInQueue);
+        return newSize > maxNumberOfMessagesInQueue;
     }
 
     private void doSend(MessageWrapper messageForSending) {
@@ -148,7 +150,7 @@ public class MessageSender {
         public void onResult(SendResult result) {
             LOG.debug(" SendQueue size {} ,  maxNumberOfMessageInQueue {} result {}",
                       sendQueue.size(),
-                      maxNumberOfMessageInQueue,
+                      maxNumberOfMessagesInQueue,
                       result.isOK());
 
             if (!result.isOK()) {

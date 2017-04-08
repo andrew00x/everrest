@@ -10,13 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.DependencySupplier;
 import org.everrest.core.Parameter;
-import org.everrest.core.impl.method.ParameterResolver;
-import org.everrest.core.impl.method.ParameterResolverFactory;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
+import org.everrest.core.ProviderBinder;
+import org.everrest.core.method.ParameterResolver;
+import org.everrest.core.method.ParameterResolverFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -34,12 +32,13 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.Response;
 import java.lang.reflect.Constructor;
 import java.util.List;
 
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
+import static org.everrest.core.$matchers.ExceptionMatchers.exceptionSameInstance;
+import static org.everrest.core.$matchers.ExceptionMatchers.webApplicationExceptionWithStatus;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -62,6 +61,7 @@ public class ConstructorDescriptorImplTest {
     private ParameterResolver<HeaderParam> headerParameterResolver;
     private ApplicationContext applicationContext;
     private DependencySupplier dependencySupplier;
+    private ProviderBinder providers;
 
     @Before
     public void setUp() throws Exception {
@@ -72,13 +72,16 @@ public class ConstructorDescriptorImplTest {
     @After
     public void tearDown() throws Exception {
         Resource.thrownByDefaultConstructorIfSet = null;
+        ApplicationContext.setCurrent(null);
     }
 
     private void mockApplicationContext() {
         dependencySupplier = mock(DependencySupplier.class);
+        providers = mock(DefaultProviderBinder.class);
         applicationContext = mock(ApplicationContext.class);
         when(applicationContext.getQueryParameters()).thenReturn(new MultivaluedHashMap<>());
         when(applicationContext.getDependencySupplier()).thenReturn(dependencySupplier);
+        when(applicationContext.getParameterResolverFactory()).thenReturn(parameterResolverFactory);
         ApplicationContext.setCurrent(applicationContext);
     }
 
@@ -101,7 +104,7 @@ public class ConstructorDescriptorImplTest {
     @Test
     public void createsConstructorDescriptorForSimpleConstructor() throws Exception {
         Constructor<Resource> constructor = Resource.class.getConstructor();
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         assertSame(constructor, constructorDescriptor.getConstructor());
         assertTrue(constructorDescriptor.getParameters().isEmpty());
@@ -110,7 +113,7 @@ public class ConstructorDescriptorImplTest {
     @Test
     public void createsInstanceOfClassFromConstructorDescriptorForSimpleConstructor() throws Exception {
         Constructor<Resource> constructor = Resource.class.getConstructor();
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         assertTrue(constructorDescriptor.createInstance(applicationContext) instanceof Resource);
     }
@@ -118,7 +121,7 @@ public class ConstructorDescriptorImplTest {
     @Test
     public void createsConstructorDescriptorForConstructorWithRequestParameters() throws Exception {
         Constructor<Resource> constructor = Resource.class.getConstructor(String.class, String.class, String.class, String.class, String.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         assertSame(constructor, constructorDescriptor.getConstructor());
         List<Parameter> parameters = constructorDescriptor.getParameters();
@@ -169,7 +172,7 @@ public class ConstructorDescriptorImplTest {
         when(headerParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenReturn("header parameter");
 
         Constructor<Resource> constructor = Resource.class.getConstructor(String.class, String.class, String.class, String.class, String.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         Object instance = constructorDescriptor.createInstance(applicationContext);
         assertTrue(instance instanceof Resource);
@@ -184,7 +187,7 @@ public class ConstructorDescriptorImplTest {
     @Test
     public void createsConstructorDescriptorForConstructorWithExternalDependency() throws Exception {
         Constructor<Resource> constructor = Resource.class.getConstructor(Dependency.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         assertSame(constructor, constructorDescriptor.getConstructor());
         assertEquals(1, constructorDescriptor.getParameters().size());
@@ -207,7 +210,7 @@ public class ConstructorDescriptorImplTest {
         }))).thenReturn(dependency);
 
         Constructor<Resource> constructor = Resource.class.getConstructor(Dependency.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         Object instance = constructorDescriptor.createInstance(applicationContext);
         assertTrue(instance instanceof Resource);
@@ -220,7 +223,7 @@ public class ConstructorDescriptorImplTest {
         when(applicationContext.getDependencySupplier()).thenReturn(null);
 
         Constructor<Resource> constructor = Resource.class.getConstructor(Dependency.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         thrown.expect(RuntimeException.class);
         constructorDescriptor.createInstance(applicationContext);
@@ -236,7 +239,7 @@ public class ConstructorDescriptorImplTest {
         }))).thenReturn(null);
 
         Constructor<Resource> constructor = Resource.class.getConstructor(Dependency.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         thrown.expect(RuntimeException.class);
         constructorDescriptor.createInstance(applicationContext);
@@ -248,10 +251,10 @@ public class ConstructorDescriptorImplTest {
         Resource.thrownByDefaultConstructorIfSet = thrownByConstructor;
 
         Constructor<Resource> constructor = Resource.class.getConstructor();
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
         thrown.expect(InternalException.class);
-        thrown.expectCause(exceptionSameInstanceMatcher(thrownByConstructor));
+        thrown.expectCause(exceptionSameInstance(thrownByConstructor));
         constructorDescriptor.createInstance(applicationContext);
     }
 
@@ -261,9 +264,9 @@ public class ConstructorDescriptorImplTest {
         Resource.thrownByDefaultConstructorIfSet = thrownByConstructor;
 
         Constructor<Resource> constructor = Resource.class.getConstructor();
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
-        thrown.expect(exceptionSameInstanceMatcher(thrownByConstructor));
+        thrown.expect(exceptionSameInstance(thrownByConstructor));
         constructorDescriptor.createInstance(applicationContext);
     }
 
@@ -273,9 +276,9 @@ public class ConstructorDescriptorImplTest {
         Resource.thrownByDefaultConstructorIfSet = thrownByConstructor;
 
         Constructor<Resource> constructor = Resource.class.getConstructor();
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
-        thrown.expect(exceptionSameInstanceMatcher(thrownByConstructor));
+        thrown.expect(exceptionSameInstance(thrownByConstructor));
         constructorDescriptor.createInstance(applicationContext);
     }
 
@@ -284,9 +287,9 @@ public class ConstructorDescriptorImplTest {
         when(pathParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
         Constructor<Resource> constructor = Resource.class.getConstructor(String.class, String.class, String.class, String.class, String.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(NOT_FOUND));
+        thrown.expect(webApplicationExceptionWithStatus(NOT_FOUND));
         constructorDescriptor.createInstance(applicationContext);
     }
 
@@ -295,9 +298,9 @@ public class ConstructorDescriptorImplTest {
         when(queryParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
         Constructor<Resource> constructor = Resource.class.getConstructor(String.class, String.class, String.class, String.class, String.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(NOT_FOUND));
+        thrown.expect(webApplicationExceptionWithStatus(NOT_FOUND));
         constructorDescriptor.createInstance(applicationContext);
     }
 
@@ -306,9 +309,9 @@ public class ConstructorDescriptorImplTest {
         when(matrixParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
         Constructor<Resource> constructor = Resource.class.getConstructor(String.class, String.class, String.class, String.class, String.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(NOT_FOUND));
+        thrown.expect(webApplicationExceptionWithStatus(NOT_FOUND));
         constructorDescriptor.createInstance(applicationContext);
     }
 
@@ -317,9 +320,9 @@ public class ConstructorDescriptorImplTest {
         when(headerParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
         Constructor<Resource> constructor = Resource.class.getConstructor(String.class, String.class, String.class, String.class, String.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(BAD_REQUEST));
+        thrown.expect(webApplicationExceptionWithStatus(BAD_REQUEST));
         constructorDescriptor.createInstance(applicationContext);
     }
 
@@ -328,39 +331,10 @@ public class ConstructorDescriptorImplTest {
         when(cookieParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
         Constructor<Resource> constructor = Resource.class.getConstructor(String.class, String.class, String.class, String.class, String.class);
-        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor, parameterResolverFactory);
+        ConstructorDescriptorImpl constructorDescriptor = new ConstructorDescriptorImpl(constructor);
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(BAD_REQUEST));
+        thrown.expect(webApplicationExceptionWithStatus(BAD_REQUEST));
         constructorDescriptor.createInstance(applicationContext);
-    }
-
-    private BaseMatcher<Throwable> exceptionSameInstanceMatcher(Exception expectedException) {
-        return new BaseMatcher<Throwable>() {
-            @Override
-            public boolean matches(Object item) {
-                return item == expectedException;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(String.format("Expected exception: %s", expectedException));
-            }
-        };
-    }
-
-    private BaseMatcher<Throwable> webApplicationExceptionWithStatusMatcher(Response.Status status) {
-        return new BaseMatcher<Throwable>() {
-            @Override
-            public boolean matches(Object item) {
-                return item instanceof WebApplicationException
-                       && status.equals(((WebApplicationException)item).getResponse().getStatusInfo());
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(String.format("WebApplicationException with status %d \"%s\"", status.getStatusCode(), status.getReasonPhrase()));
-            }
-        };
     }
 
     @Path("/a/{x}")

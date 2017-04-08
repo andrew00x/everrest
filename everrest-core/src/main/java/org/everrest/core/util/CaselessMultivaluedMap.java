@@ -11,7 +11,6 @@
 package org.everrest.core.util;
 
 import com.google.common.base.Objects;
-
 import org.everrest.core.ExtMultivaluedMap;
 
 import javax.ws.rs.core.MultivaluedHashMap;
@@ -437,8 +436,10 @@ public class CaselessMultivaluedMap<T> implements ExtMultivaluedMap<String, T>, 
     public void putAll(Map<? extends String, ? extends List<T>> m) {
         for (String key : m.keySet()) {
             List<T> values = m.get(key);
-            for (T v : values) {
-                add(key, v);
+            if (values != null) {
+                for (T v : values) {
+                    add(key, v);
+                }
             }
         }
     }

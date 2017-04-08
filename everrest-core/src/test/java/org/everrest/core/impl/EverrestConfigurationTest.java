@@ -11,111 +11,129 @@
 package org.everrest.core.impl;
 
 import com.google.common.collect.ImmutableMap;
-import com.tngtech.java.junit.dataprovider.DataProvider;
-import com.tngtech.java.junit.dataprovider.DataProviderRunner;
-import com.tngtech.java.junit.dataprovider.UseDataProvider;
-
-import org.junit.Before;
+import org.everrest.core.ConfigurationProperties;
+import org.everrest.core.ProviderBinder;
+import org.everrest.core.impl.provider.ByteEntityProvider;
+import org.everrest.core.impl.provider.StringEntityProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.runners.MockitoJUnitRunner;
 
+import javax.ws.rs.core.Feature;
+import javax.ws.rs.core.FeatureContext;
+import javax.ws.rs.ext.MessageBodyReader;
+import javax.ws.rs.ext.MessageBodyWriter;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+
+import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Sets.newHashSet;
+import static javax.ws.rs.RuntimeType.SERVER;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@RunWith(DataProviderRunner.class)
+@RunWith(MockitoJUnitRunner.class)
 public class EverrestConfigurationTest {
-    private EverrestConfiguration everrestConfiguration;
+    @Mock private ProviderBinder providers;
+    @Mock private ConfigurationProperties configurationProperties;
+    @InjectMocks private EverrestConfiguration configuration;
 
-    @Before
-    public void setUp() throws Exception {
-        everrestConfiguration = new EverrestConfiguration();
+    @Test
+    public void getsRuntimeType() {
+        when(providers.getRuntimeType()).thenReturn(SERVER);
+        assertEquals(SERVER, configuration.getRuntimeType());
     }
 
     @Test
-    public void testDefaultEverrestConfiguration() {
-        assertTrue(everrestConfiguration.isHttpMethodOverride());
-        assertTrue(everrestConfiguration.isAsynchronousSupported());
-        assertEquals("/async", everrestConfiguration.getAsynchronousServicePath());
-        assertEquals(10, everrestConfiguration.getAsynchronousPoolSize());
-        assertTrue(everrestConfiguration.isCheckSecurity());
-        assertFalse(everrestConfiguration.isNormalizeUri());
-        assertEquals(100, everrestConfiguration.getAsynchronousQueueSize());
-        assertEquals(512, everrestConfiguration.getAsynchronousCacheSize());
-        assertEquals(60, everrestConfiguration.getAsynchronousJobTimeout());
-        assertEquals(204800, everrestConfiguration.getMaxBufferSize());
+    public void getsProperties() {
+        Map<String, Object> properties = ImmutableMap.of("name", "value");
+        when(configurationProperties.getProperties()).thenReturn(properties);
+        assertEquals(properties, configuration.getProperties());
     }
 
     @Test
-    public void copiesAllPropertiesFromOtherEverrestConfiguration() {
-        everrestConfiguration.setProperty("foo", "bar");
-        everrestConfiguration.setProperty("foo2", "bar2");
-        EverrestConfiguration newEverrestConfiguration = new EverrestConfiguration(everrestConfiguration);
-
-        assertEquals(everrestConfiguration.getAllProperties(), newEverrestConfiguration.getAllProperties());
+    public void getsProperty() {
+        when(configurationProperties.getProperty("name")).thenReturn("value");
+        assertEquals("value", configuration.getProperty("name"));
     }
 
     @Test
-    public void removesPropertyIfNullValueProvided() {
-        everrestConfiguration.setProperty("foo", "bar");
-        everrestConfiguration.setProperty("foo2", "bar2");
-        everrestConfiguration.setProperty("foo2", null);
-
-        assertEquals(ImmutableMap.of("foo", "bar"), everrestConfiguration.getAllProperties());
-    }
-
-    @DataProvider
-    public static Object[][] forBooleanPropertyTest() {
-        return new Object[][] {
-                {"1", true},
-                {"yes", true},
-                {"true", true},
-                {"on", true},
-                {"Yes", true},
-                {"True", true},
-                {"On", true},
-                {"", false},
-                {"0", false},
-                {"Off", false},
-                {null, false}
-        };
+    public void getsPropertyNames() {
+        Collection<String> names = newArrayList("name1", "name2");
+        when(configurationProperties.getPropertyNames()).thenReturn(names);
+        assertEquals(names, configuration.getPropertyNames());
     }
 
     @Test
-    @UseDataProvider("forBooleanPropertyTest")
-    public void testBooleanProperty(String booleanPropertyAsString, boolean expectedBooleanRepresentation) {
-        everrestConfiguration.setProperty("foo", booleanPropertyAsString);
-        assertEquals(expectedBooleanRepresentation, everrestConfiguration.getBooleanProperty("foo", false));
+    public void checkIsFeatureEnabled() {
+        Feature feature = mock(Feature.class);
+        when(providers.isEnabled(feature)).thenReturn(true);
+        assertTrue(configuration.isEnabled(feature));
     }
 
     @Test
-    public void ignoresNumberPropertiesWithInvalidFormat() {
-        everrestConfiguration.setProperty("foo", "bar");
-        assertEquals(11.0, everrestConfiguration.getNumberProperty("foo", 11.0), 0.0);
+    public void checkIsFeatureClassEnabled() {
+        when(providers.isEnabled(SomeFeature.class)).thenReturn(true);
+        assertTrue(configuration.isEnabled(SomeFeature.class));
     }
 
     @Test
-    public void setsCustomPropertiesForConfiguration() {
-        everrestConfiguration.setCheckSecurity(false);
-        everrestConfiguration.setHttpMethodOverride(false);
-        everrestConfiguration.setNormalizeUri(true);
-        everrestConfiguration.setAsynchronousSupported(false);
-        everrestConfiguration.setAsynchronousServicePath("/async2");
-        everrestConfiguration.setAsynchronousPoolSize(20);
-        everrestConfiguration.setAsynchronousQueueSize(256);
-        everrestConfiguration.setAsynchronousCacheSize(100);
-        everrestConfiguration.setAsynchronousJobTimeout(10);
-        everrestConfiguration.setMaxBufferSize(2048);
+    public void checkIsComponentRegistered() {
+        Object component = new StringEntityProvider();
+        when(providers.isRegistered(component)).thenReturn(true);
+        assertTrue(configuration.isRegistered(component));
+    }
 
-        assertFalse(everrestConfiguration.isHttpMethodOverride());
-        assertFalse(everrestConfiguration.isAsynchronousSupported());
-        assertEquals("/async2", everrestConfiguration.getAsynchronousServicePath());
-        assertEquals(20, everrestConfiguration.getAsynchronousPoolSize());
-        assertFalse(everrestConfiguration.isCheckSecurity());
-        assertTrue(everrestConfiguration.isNormalizeUri());
-        assertEquals(256, everrestConfiguration.getAsynchronousQueueSize());
-        assertEquals(100, everrestConfiguration.getAsynchronousCacheSize());
-        assertEquals(10, everrestConfiguration.getAsynchronousJobTimeout());
-        assertEquals(2048, everrestConfiguration.getMaxBufferSize());
+    @Test
+    public void checkIsComponentClassRegistered() {
+        when(providers.isRegistered(StringEntityProvider.class)).thenReturn(true);
+        assertTrue(configuration.isRegistered(StringEntityProvider.class));
+    }
+
+    @Test
+    public void getsContractsOfComponentClass() {
+        Map<Class<?>, Integer> contracts = ImmutableMap.of(MessageBodyReader.class, 1,
+                                                           MessageBodyWriter.class, 2);
+        when(providers.getContracts(StringEntityProvider.class)).thenReturn(contracts);
+        assertEquals(contracts, configuration.getContracts(StringEntityProvider.class));
+    }
+
+    @Test
+    public void getsComponentClasses() {
+        Set<Class<?>> componentClasses = newHashSet(ByteEntityProvider.class, StringEntityProvider.class);
+        when(providers.getClasses()).thenReturn(componentClasses);
+        assertEquals(componentClasses, configuration.getClasses());
+    }
+
+    @Test
+    public void getsComponentInstances() {
+        Set<Object> components = newHashSet(new ByteEntityProvider(), new StringEntityProvider());
+        when(providers.getInstances()).thenReturn(components);
+        assertEquals(components, configuration.getInstances());
+    }
+
+    @Test
+    public void setsProperty() {
+        configuration.setProperty("name", "value");
+        verify(configurationProperties).setProperty("name", "value");
+    }
+
+    @Test
+    public void removesProperty() {
+        configuration.removeProperty("name");
+        verify(configurationProperties).removeProperty("name");
+    }
+
+    static class SomeFeature implements Feature {
+        @Override
+        public boolean configure(FeatureContext context) {
+            return false;
+        }
     }
 }

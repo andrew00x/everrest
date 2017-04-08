@@ -22,14 +22,11 @@ import static org.everrest.assured.EverrestJetty.JETTY_SERVER;
 public class GroovyServiceTest {
 
     @Test
-    public void testName(ITestContext context) throws Exception {
-        JettyHttpServer httpServer = (JettyHttpServer)context.getAttribute(JETTY_SERVER);
+    public void sendsRequestToGroovyService(ITestContext context) {
+        JettyHttpServer httpServer = (JettyHttpServer) context.getAttribute(JETTY_SERVER);
         httpServer.publishPerRequestGroovyScript("a/b/GroovyResource1.groovy", "GroovyResource1");
-
-        expect()
-                .statusCode(200)
+        expect().statusCode(200)
                 .body(Matchers.containsString("GroovyResource1"))
-
                 .when()
                 .get("/a/b");
     }

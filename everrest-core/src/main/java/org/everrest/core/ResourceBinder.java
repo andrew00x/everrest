@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.everrest.core;
 
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.resource.ResourceDescriptor;
 import org.everrest.core.uri.UriPattern;
 
@@ -194,4 +195,8 @@ public interface ResourceBinder {
      */
     ObjectFactory<ResourceDescriptor> removeResource(String path);
 
+    /** Clear the list of resources. */
+    void clear();
+
+    void setObjectFactoryProducer(ObjectFactoryProducer objectFactoryProducer);
 }

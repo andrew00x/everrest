@@ -10,20 +10,9 @@
  *******************************************************************************/
 package org.everrest.assured;
 
+import com.google.common.base.Throwables;
 import com.jayway.restassured.RestAssured;
-
-import org.everrest.core.Filter;
-import org.everrest.core.FilterDescriptor;
-import org.everrest.core.ObjectFactory;
-import org.everrest.core.ObjectModel;
-import org.everrest.core.RequestFilter;
-import org.everrest.core.ResponseFilter;
 import org.everrest.core.impl.EverrestApplication;
-import org.everrest.core.impl.FilterDescriptorImpl;
-import org.everrest.core.impl.provider.ProviderDescriptorImpl;
-import org.everrest.core.impl.resource.AbstractResourceDescriptor;
-import org.everrest.core.method.MethodInvokerFilter;
-import org.everrest.core.provider.ProviderDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.IInvokedMethod;
@@ -35,90 +24,71 @@ import org.testng.ITestNGMethod;
 import org.testng.ITestResult;
 import org.testng.annotations.Listeners;
 
-import javax.ws.rs.Path;
-import javax.ws.rs.ext.ContextResolver;
-import javax.ws.rs.ext.ExceptionMapper;
-import javax.ws.rs.ext.MessageBodyReader;
-import javax.ws.rs.ext.MessageBodyWriter;
-import javax.ws.rs.ext.Provider;
+import javax.servlet.Filter;
 import java.lang.reflect.Field;
+
+import static org.everrest.core.impl.RestComponentResolver.isRootResourceOrProvider;
 
 
 public class EverrestJetty implements ITestListener, IInvokedMethodListener {
+    private static final Logger LOG = LoggerFactory.getLogger(EverrestJetty.class);
 
-    public final static  String JETTY_PORT   = "jetty-port";
-    public final static  String JETTY_SERVER = "jetty-server";
-    private static final Logger LOG          = LoggerFactory.getLogger(EverrestJetty.class);
+    public final static String JETTY_PORT = "jetty-port";
+    public final static String JETTY_SERVER = "jetty-server";
+
     private JettyHttpServer httpServer;
+    private TestObjectFactoryProducer testedComponentFactoryProducer = new TestObjectFactoryProducer();
 
-
-    /**
-     * @see org.testng.IInvokedMethodListener#afterInvocation(org.testng.IInvokedMethod,
-     * org.testng.ITestResult)
-     */
     @Override
     public void afterInvocation(IInvokedMethod method, ITestResult testResult) {
         if (httpServer != null && hasEverrestJettyListener(method.getTestMethod().getInstance().getClass())) {
-            httpServer.resetFactories();
+            httpServer.resetComponentBindings();
             httpServer.resetFilter();
         }
-
     }
 
-    /**
-     * @see org.testng.IInvokedMethodListener#beforeInvocation(org.testng.IInvokedMethod,
-     * org.testng.ITestResult)
-     */
     @Override
     public void beforeInvocation(IInvokedMethod method, ITestResult testResult) {
         if (httpServer != null && hasEverrestJettyListener(method.getTestMethod().getInstance().getClass())) {
-            httpServer.resetFactories();
+            httpServer.resetComponentBindings();
             httpServer.resetFilter();
-            initRestResource(method.getTestMethod());
+            initRestComponents(method.getTestMethod());
         }
     }
 
     public void onFinish(ITestContext context) {
-        JettyHttpServer httpServer = (JettyHttpServer)context.getAttribute(JETTY_SERVER);
+        JettyHttpServer httpServer = (JettyHttpServer) context.getAttribute(JETTY_SERVER);
         if (httpServer != null) {
             try {
                 httpServer.stop();
-                httpServer = null;
             } catch (Exception e) {
                 LOG.error(e.getLocalizedMessage(), e);
-                throw new RuntimeException(e.getLocalizedMessage(), e);
+                throw Throwables.propagate(e);
             }
-
         }
     }
 
     @Override
     public void onTestStart(ITestResult result) {
-
     }
 
     @Override
     public void onTestSuccess(ITestResult result) {
-
     }
 
     @Override
     public void onTestFailure(ITestResult result) {
-
     }
 
     @Override
     public void onTestSkipped(ITestResult result) {
-
     }
 
     @Override
     public void onTestFailedButWithinSuccessPercentage(ITestResult result) {
-
     }
 
     public void onStart(ITestContext context) {
-
         ITestNGMethod[] allTestMethods = context.getAllTestMethods();
         if (allTestMethods == null) {
             return;
@@ -131,51 +101,50 @@ public class EverrestJetty implements ITestListener, IInvokedMethodListener {
 
             try {
                 httpServer.start();
-                httpServer.resetFactories();
+                httpServer.resetComponentBindings();
                 httpServer.resetFilter();
+                httpServer.getProviderBinder().setObjectFactoryProducer(testedComponentFactoryProducer);
+                httpServer.getResourceBinder().setObjectFactoryProducer(testedComponentFactoryProducer);
                 RestAssured.port = httpServer.getPort();
                 RestAssured.basePath = JettyHttpServer.UNSECURE_REST;
             } catch (Exception e) {
                 LOG.error(e.getLocalizedMessage(), e);
-                throw new RuntimeException(e.getLocalizedMessage(), e);
+                throw Throwables.propagate(e);
             }
         }
     }
 
-    private void initRestResource(ITestNGMethod... testMethods) {
+    @SuppressWarnings("unchecked")
+    private void initRestComponents(ITestNGMethod... testMethods) {
         for (ITestNGMethod testMethod : testMethods) {
-            Object instance = testMethod.getInstance();
+            Object test = testMethod.getInstance();
 
-            if (hasEverrestJettyListenerTestHierarchy(instance.getClass())) {
+            if (hasEverrestJettyListenerTestHierarchy(test.getClass())) {
                 EverrestApplication everrest = new EverrestApplication();
-                Field[] fields = instance.getClass().getDeclaredFields();
+                Field[] fields = test.getClass().getDeclaredFields();
                 for (Field field : fields) {
                     try {
-                        if (isRestResource(field.getType())) {
-                            ObjectFactory<? extends ObjectModel> factory = createFactory(instance, field);
-                            if (factory != null) {
-                                everrest.addFactory(factory);
-                            }
-                        } else if (javax.servlet.Filter.class.isAssignableFrom(field.getType())) {
+                        field.setAccessible(true);
+                        if (isRootResourceOrProvider(field.getType())) {
+                            testedComponentFactoryProducer.registerRestComponent(test, field);
+                            everrest.addClass(field.getType());
+                        } else if (Filter.class.isAssignableFrom(field.getType())) {
                             field.setAccessible(true);
-                            Object fieldInstance = field.get(instance);
+                            Object fieldInstance = field.get(test);
                             if (fieldInstance != null) {
-                                httpServer.addFilter(((javax.servlet.Filter)fieldInstance), "/*");
+                                httpServer.addFilter(((Filter) fieldInstance), "/*");
                             } else {
-                                httpServer.addFilter((Class<? extends javax.servlet.Filter>)field.getType(), "/*");
+                                httpServer.addFilter((Class<? extends Filter>) field.getType(), "/*");
                             }
                         }
                     } catch (IllegalAccessException e) {
                         LOG.error(e.getLocalizedMessage(), e);
                     }
                 }
-                if (everrest.getFactories().size() > 0) {
-                    httpServer.publish(everrest);
-                }
+                httpServer.publish(everrest);
             }
         }
     }
-
 
     private boolean hasEverrestJettyListener(Class<?> clazz) {
         Listeners listeners = clazz.getAnnotation(Listeners.class);
@@ -208,33 +177,5 @@ public class EverrestJetty implements ITestListener, IInvokedMethodListener {
             }
         }
         return false;
-    }
-
-    private boolean isRestResource(Class<?> resourceClass) {
-        return resourceClass.isAnnotationPresent(Path.class) ||
-               resourceClass.isAnnotationPresent(Provider.class) ||
-               resourceClass.isAnnotationPresent(Filter.class) ||
-               resourceClass.isAssignableFrom(ExceptionMapper.class) ||
-               resourceClass.isAssignableFrom(ContextResolver.class) ||
-               resourceClass.isAssignableFrom(MessageBodyReader.class) ||
-               resourceClass.isAssignableFrom(MessageBodyWriter.class) ||
-               resourceClass.isAssignableFrom(MethodInvokerFilter.class) ||
-               resourceClass.isAssignableFrom(RequestFilter.class) ||
-               resourceClass.isAssignableFrom(ResponseFilter.class);
-    }
-
-    public ObjectFactory<? extends ObjectModel> createFactory(Object testObject, Field field) {
-        Class clazz = (Class)field.getType();
-        if (clazz.getAnnotation(Provider.class) != null) {
-            ProviderDescriptor providerDescriptor = new ProviderDescriptorImpl(clazz);
-            return new TestResourceFactory<>(providerDescriptor, testObject, field);
-        } else if (clazz.getAnnotation(Filter.class) != null) {
-            FilterDescriptor filterDescriptor = new FilterDescriptorImpl(clazz);
-            return new TestResourceFactory<>(filterDescriptor, testObject, field);
-        } else if (clazz.getAnnotation(Path.class) != null) {
-            AbstractResourceDescriptor resourceDescriptor = new AbstractResourceDescriptor(clazz);
-            return new TestResourceFactory<>(resourceDescriptor, testObject, field);
-        }
-        return null;
     }
 }

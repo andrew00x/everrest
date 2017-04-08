@@ -13,7 +13,6 @@ package org.everrest.core.impl.integration;
 import com.tngtech.java.junit.dataprovider.DataProvider;
 import com.tngtech.java.junit.dataprovider.DataProviderRunner;
 import com.tngtech.java.junit.dataprovider.UseDataProvider;
-
 import org.everrest.core.impl.BaseTest;
 import org.everrest.core.impl.ContainerResponse;
 import org.everrest.core.impl.MultivaluedMapImpl;
@@ -114,7 +113,7 @@ public class ProduceMediaTypesTest extends BaseTest {
             assertEquals(expectedEntity, response.getEntity());
         }
         if (expectedContentType != null) {
-            assertEquals(MediaType.valueOf(expectedContentType), response.getContentType());
+            assertEquals(MediaType.valueOf(expectedContentType), response.getMediaType());
         }
     }
 }

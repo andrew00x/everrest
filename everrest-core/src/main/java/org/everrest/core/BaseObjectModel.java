@@ -13,15 +13,22 @@ package org.everrest.core;
 import org.everrest.core.impl.ConstructorDescriptorImpl;
 import org.everrest.core.impl.FieldInjectorImpl;
 import org.everrest.core.impl.MultivaluedMapImpl;
-import org.everrest.core.impl.method.ParameterResolverFactory;
 import org.slf4j.LoggerFactory;
 
+import javax.ws.rs.NameBinding;
 import javax.ws.rs.core.MultivaluedMap;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+import static org.everrest.core.util.ReflectionUtils.findAnnotationsAnnotatedWith;
 
 public class BaseObjectModel implements ObjectModel {
     private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(BaseObjectModel.class);
@@ -31,7 +38,6 @@ public class BaseObjectModel implements ObjectModel {
 
     /** Compare two ConstructorDescriptor in number parameters order. */
     private static class ConstructorComparatorByNumberOfParameters implements Comparator<ConstructorDescriptor> {
-
         @Override
         public int compare(ConstructorDescriptor constructorDescriptorOne, ConstructorDescriptor constructorDescriptorTwo) {
             int result = constructorDescriptorTwo.getParameters().size() - constructorDescriptorOne.getParameters().size();
@@ -44,38 +50,48 @@ public class BaseObjectModel implements ObjectModel {
 
     protected final Class<?>                    clazz;
     protected final List<ConstructorDescriptor> constructors;
-    protected final List<FieldInjector>         fields;
-
-    private ParameterResolverFactory parameterResolverFactory;
+    protected final List<FieldInjector>         fieldInjectors;
+    protected final Annotation[]                nameBindingAnnotations;
 
     /** Optional properties. */
     private MultivaluedMapImpl properties;
 
     public BaseObjectModel(Object instance) {
-        this.clazz = instance.getClass();
-        this.constructors = new ArrayList<>();
-        this.fields = new ArrayList<>();
-        parameterResolverFactory = new ParameterResolverFactory();
+        this(instance, null);
     }
 
-    public BaseObjectModel(Class<?> clazz) {
-        this.clazz = clazz;
-        this.constructors = new ArrayList<>();
-        this.fields = new ArrayList<>();
-        parameterResolverFactory = new ParameterResolverFactory();
+    public BaseObjectModel(Object instance, Annotation[] applicationNameBindingAnnotations) {
+        this(instance, instance.getClass(), applicationNameBindingAnnotations);
+    }
+
+    public BaseObjectModel(Class<?> aClass) {
+        this(aClass, null);
+    }
+
+    public BaseObjectModel(Class<?> aClass, Annotation[] applicationNameBindingAnnotations) {
+        this(null, aClass, applicationNameBindingAnnotations);
 
         processConstructors();
         sortConstructorByNumberOfParameters();
         processFields();
     }
 
-    void setParameterResolverFactory(ParameterResolverFactory parameterResolverFactory) {
-        this.parameterResolverFactory = parameterResolverFactory;
+    private BaseObjectModel(@SuppressWarnings("unused") Object instance, Class<?> aClass, Annotation[] applicationNameBindingAnnotations) {
+        this.clazz = aClass;
+        this.constructors = new ArrayList<>();
+        this.fieldInjectors = new ArrayList<>();
+        Set<Annotation> mergedBindingAnnotations = new HashSet<>();
+        Collections.addAll(mergedBindingAnnotations, findAnnotationsAnnotatedWith(aClass, NameBinding.class));
+        if (applicationNameBindingAnnotations != null) {
+            Collections.addAll(mergedBindingAnnotations, applicationNameBindingAnnotations);
+        }
+        this.nameBindingAnnotations = mergedBindingAnnotations.toArray(new Annotation[mergedBindingAnnotations.size()]);
+
     }
 
     protected void processConstructors() {
         for (Constructor<?> constructor : clazz.getConstructors()) {
-            constructors.add(new ConstructorDescriptorImpl(constructor, parameterResolverFactory));
+            constructors.add(new ConstructorDescriptorImpl(constructor));
         }
         if (constructors.size() == 0) {
             throw new RuntimeException(String.format("Not found accepted constructors for provider class %s", clazz.getName()));
@@ -89,15 +105,15 @@ public class BaseObjectModel implements ObjectModel {
     }
 
     protected void processFields() {
-        for (java.lang.reflect.Field jField : clazz.getDeclaredFields()) {
-            fields.add(new FieldInjectorImpl(jField, parameterResolverFactory));
+        for (Field field : clazz.getDeclaredFields()) {
+            fieldInjectors.add(new FieldInjectorImpl(field));
         }
         Class<?> superclass = clazz.getSuperclass();
         while (superclass != null && superclass != Object.class) {
-            for (java.lang.reflect.Field jField : superclass.getDeclaredFields()) {
-                FieldInjector fieldInjector = new FieldInjectorImpl(jField, parameterResolverFactory);
+            for (Field field : superclass.getDeclaredFields()) {
+                FieldInjector fieldInjector = new FieldInjectorImpl(field);
                 if (fieldInjector.getAnnotation() != null) {
-                    fields.add(fieldInjector);
+                    fieldInjectors.add(fieldInjector);
                 }
             }
             superclass = superclass.getSuperclass();
@@ -116,7 +132,7 @@ public class BaseObjectModel implements ObjectModel {
 
     @Override
     public List<FieldInjector> getFieldInjectors() {
-        return fields;
+        return fieldInjectors;
     }
 
     @Override
@@ -133,5 +149,29 @@ public class BaseObjectModel implements ObjectModel {
             return properties.get(key);
         }
         return null;
+    }
+
+    @Override
+    public Annotation[] getNameBindingAnnotations() {
+        return nameBindingAnnotations;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof BaseObjectModel)) {
+            return false;
+        }
+        BaseObjectModel other = (BaseObjectModel) o;
+        return Objects.equals(clazz, other.getObjectClass());
+    }
+
+    @Override
+    public int hashCode() {
+        int hashcode = 8;
+        hashcode = 31 * hashcode + Objects.hash(clazz);
+        return hashcode;
     }
 }

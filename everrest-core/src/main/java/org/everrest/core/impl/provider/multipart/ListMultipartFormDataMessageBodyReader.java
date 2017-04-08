@@ -11,8 +11,8 @@
 package org.everrest.core.impl.provider.multipart;
 
 import org.apache.commons.fileupload.FileItem;
-import org.everrest.core.util.ParameterizedTypeImpl;
 
+import javax.annotation.Priority;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
@@ -30,9 +30,13 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
+import static org.everrest.core.util.ParameterizedTypeImpl.newParameterizedType;
+
 /**
  * @author andrew00x
  */
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 @Consumes({"multipart/*"})
 public class ListMultipartFormDataMessageBodyReader implements MessageBodyReader<List<InputItem>> {
@@ -57,7 +61,7 @@ public class ListMultipartFormDataMessageBodyReader implements MessageBodyReader
     public List<InputItem> readFrom(Class<List<InputItem>> type, Type genericType, Annotation[] annotations, MediaType mediaType,
                                     MultivaluedMap<String, String> httpHeaders, InputStream entityStream)
             throws IOException, WebApplicationException {
-        final Type fileItemIteratorGenericType = ParameterizedTypeImpl.newParameterizedType(Iterator.class, FileItem.class);
+        final Type fileItemIteratorGenericType = newParameterizedType(Iterator.class, FileItem.class);
         final MessageBodyReader<Iterator> multipartReader =
                 providers.getMessageBodyReader(Iterator.class, fileItemIteratorGenericType, annotations, mediaType);
         final Iterator iterator =

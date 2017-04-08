@@ -11,7 +11,6 @@
 package org.everrest.core.impl.uri;
 
 import com.google.common.base.Strings;
-
 import org.everrest.core.impl.MultivaluedMapImpl;
 import org.everrest.core.util.NoSyncByteArrayOutputStream;
 
@@ -230,43 +229,43 @@ public final class UriComponent {
     }
 
     private static String normalize(String path) {
-        String inputBuffer = path;
+        String input = path;
         StringBuilder outputBuffer = new StringBuilder();
-        if (inputBuffer.contains("//")) {
-            inputBuffer = inputBuffer.replaceAll("//", "/");
+        if (input.contains("//")) {
+            input = input.replaceAll("//", "/");
         }
 
-        while (inputBuffer.length() != 0) {
+        while (input.length() != 0) {
             // If the input buffer begins with a prefix of "../" or "./", then remove
             // that prefix from the input buffer.
             // http://www.unix.com.ua/rfc/rfc3986.html#sA.
-            if (inputBuffer.startsWith("../") || inputBuffer.startsWith("./")) {
-                inputBuffer = inputBuffer.substring(inputBuffer.indexOf('/') + 1, inputBuffer.length());
+            if (input.startsWith("../") || input.startsWith("./")) {
+                input = input.substring(input.indexOf('/') + 1, input.length());
                 continue;
             }
             // if the input buffer begins with a prefix of "/./" or "/.", where "." is
             // a complete path segment, then replace that prefix with "/" in the input buffer.
             // http://www.unix.com.ua/rfc/rfc3986.html#sB.
-            if (inputBuffer.startsWith("/./") || (inputBuffer.startsWith("/.") && isCompletePathSeg(".", inputBuffer))) {
-                if (inputBuffer.equals("/.")) {
-                    inputBuffer = "";
+            if (input.startsWith("/./") || (input.startsWith("/.") && isCompletePathSeg(".", input))) {
+                if (input.equals("/.")) {
+                    input = "";
                     outputBuffer.append('/');
                     continue;
                 }
-                inputBuffer = inputBuffer.substring(inputBuffer.indexOf('/', 1), inputBuffer.length());
+                input = input.substring(input.indexOf('/', 1), input.length());
                 continue;
             }
             // if the input buffer begins with a prefix of "/../" or "/..", where ".."
             // is a complete path segment, then replace that prefix with "/" in the input buffer and
             // remove the last segment and its preceding "/" (if any) from the output buffer.
             // http://www.unix.com.ua/rfc/rfc3986.html#sC.
-            if (inputBuffer.startsWith("/../") || (inputBuffer.startsWith("/..") && isCompletePathSeg("..", inputBuffer))) {
-                if (inputBuffer.equals("/..")) {
-                    inputBuffer = "";
+            if (input.startsWith("/../") || (input.startsWith("/..") && isCompletePathSeg("..", input))) {
+                if (input.equals("/..")) {
+                    input = "";
                     outputBuffer.delete(outputBuffer.lastIndexOf("/") + 1, outputBuffer.length());
                     continue;
                 }
-                inputBuffer = inputBuffer.substring(inputBuffer.indexOf('/', 1), inputBuffer.length());
+                input = input.substring(input.indexOf('/', 1), input.length());
                 if (outputBuffer.lastIndexOf("/") >= 0) {
                     outputBuffer.delete(outputBuffer.lastIndexOf("/"), outputBuffer.length());
                 }
@@ -275,8 +274,8 @@ public final class UriComponent {
             // if the input buffer consists only of "." or "..", then remove that from
             // the input buffer.
             // http://www.unix.com.ua/rfc/rfc3986.html#sD.
-            if (inputBuffer.equals(".") || inputBuffer.equals("..")) {
-                inputBuffer = "";
+            if (input.equals(".") || input.equals("..")) {
+                input = "";
                 continue;
             }
             // move the first path segment in the input buffer to the end of the
@@ -284,12 +283,12 @@ public final class UriComponent {
             // characters up to, but not including, the next "/" character or the end of the
             // input buffer.
             // http://www.unix.com.ua/rfc/rfc3986.html#sE.
-            if (inputBuffer.indexOf('/') != inputBuffer.lastIndexOf('/')) {
-                outputBuffer.append(inputBuffer.substring(0, inputBuffer.indexOf('/', 1)));
-                inputBuffer = inputBuffer.substring(inputBuffer.indexOf('/', 1));
+            if (input.indexOf('/') != input.lastIndexOf('/')) {
+                outputBuffer.append(input.substring(0, input.indexOf('/', 1)));
+                input = input.substring(input.indexOf('/', 1));
             } else {
-                outputBuffer.append(inputBuffer);
-                inputBuffer = "";
+                outputBuffer.append(input);
+                input = "";
             }
         }
         return outputBuffer.toString();

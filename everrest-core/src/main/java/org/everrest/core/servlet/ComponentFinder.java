@@ -10,8 +10,6 @@
  *******************************************************************************/
 package org.everrest.core.servlet;
 
-import org.everrest.core.Filter;
-
 import javax.servlet.ServletContainerInitializer;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
@@ -29,7 +27,7 @@ import static java.lang.reflect.Modifier.isAbstract;
 import static org.everrest.core.servlet.EverrestServletContextInitializer.EVERREST_SCAN_SKIP_PACKAGES;
 
 /** @author andrew00x */
-@HandlesTypes({Path.class, Provider.class, Filter.class})
+@HandlesTypes({Path.class, Provider.class})
 public class ComponentFinder implements ServletContainerInitializer {
 
     private static Set<Class<?>> scanned = new LinkedHashSet<>();

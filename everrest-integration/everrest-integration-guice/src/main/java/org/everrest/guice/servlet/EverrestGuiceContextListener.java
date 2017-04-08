@@ -18,46 +18,34 @@ import com.google.inject.Module;
 import com.google.inject.Stage;
 import com.google.inject.servlet.GuiceServletContextListener;
 import com.google.inject.servlet.ServletModule;
-
 import org.everrest.core.DependencySupplier;
-import org.everrest.core.Filter;
-import org.everrest.core.FilterDescriptor;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.ResourceBinder;
-import org.everrest.core.impl.ApplicationProviderBinder;
 import org.everrest.core.impl.EverrestApplication;
-import org.everrest.core.impl.EverrestConfiguration;
 import org.everrest.core.impl.EverrestProcessor;
 import org.everrest.core.impl.FileCollectorDestroyer;
-import org.everrest.core.impl.FilterDescriptorImpl;
-import org.everrest.core.impl.RequestDispatcher;
-import org.everrest.core.impl.RequestHandlerImpl;
-import org.everrest.core.impl.ResourceBinderImpl;
-import org.everrest.core.impl.async.AsynchronousJobPool;
-import org.everrest.core.impl.async.AsynchronousJobService;
-import org.everrest.core.impl.async.AsynchronousProcessListWriter;
-import org.everrest.core.impl.method.filter.SecurityConstraint;
-import org.everrest.core.impl.provider.ProviderDescriptorImpl;
-import org.everrest.core.impl.resource.AbstractResourceDescriptor;
-import org.everrest.core.provider.ProviderDescriptor;
-import org.everrest.core.resource.ResourceDescriptor;
+import org.everrest.core.impl.ServerConfigurationProperties;
 import org.everrest.core.servlet.EverrestServletContextInitializer;
 import org.everrest.guice.BindingPath;
 import org.everrest.guice.EverrestConfigurationModule;
 import org.everrest.guice.EverrestModule;
 import org.everrest.guice.GuiceDependencySupplier;
-import org.everrest.guice.GuiceObjectFactory;
+import org.everrest.guice.GuiceObjectFactoryProducer;
 import org.everrest.guice.GuiceRuntimeDelegateImpl;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.ws.rs.Path;
-import javax.ws.rs.core.Application;
 import javax.ws.rs.ext.Provider;
 import javax.ws.rs.ext.RuntimeDelegate;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+
+import static org.everrest.core.impl.RestComponentResolver.isRootResource;
+import static org.everrest.core.impl.RestComponentResolver.isRootResourceOrProvider;
 
 /**
  * @author andrew00x
@@ -67,9 +55,8 @@ public abstract class EverrestGuiceContextListener extends GuiceServletContextLi
      * Default EverrestGuiceContextListener implementation. It gets application's FQN from context-param
      * <i>javax.ws.rs.Application</i> and instantiate it. If such parameter is not specified then scan (if scanning is
      * enabled) web application's folders WEB-INF/classes and WEB-INF/lib for classes which contains JAX-RS annotations.
-     * Interesting for three annotations {@link Path}, {@link Provider} and {@link Filter}. Scanning of JAX-RS
-     * components
-     * is managed by contex-param <i>org.everrest.scan.components</i>. This parameter must be <i>true</i> to enable
+     * Interesting for three annotations {@link Path}, {@link Provider}. Scanning of JAX-RS
+     * components is managed by context-param <i>org.everrest.scan.components</i>. This parameter must be <i>true</i> to enable
      * scanning.
      */
     public static class DefaultListener extends EverrestGuiceContextListener {
@@ -79,61 +66,48 @@ public abstract class EverrestGuiceContextListener extends GuiceServletContextLi
         }
     }
 
-
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         super.contextInitialized(sce);
         ServletContext servletContext = sce.getServletContext();
-        ResourceBinderImpl resources = new ResourceBinderImpl();
-        ApplicationProviderBinder providers = new ApplicationProviderBinder();
         Injector injector = getInjector(servletContext);
-        DependencySupplier dependencySupplier = new GuiceDependencySupplier(injector);
-        EverrestConfiguration config = injector.getInstance(EverrestConfiguration.class);
-        EverrestServletContextInitializer everrestInitializer = new EverrestServletContextInitializer(servletContext);
-        Application application = everrestInitializer.getApplication();
-        EverrestApplication everrest = new EverrestApplication();
-        if (config.isAsynchronousSupported()) {
-            everrest.addResource(config.getAsynchronousServicePath(), AsynchronousJobService.class);
-            everrest.addSingleton(new AsynchronousJobPool(config));
-            everrest.addSingleton(new AsynchronousProcessListWriter());
-        }
-        if (config.isCheckSecurity()) {
-            everrest.addSingleton(new SecurityConstraint());
-        }
-        everrest.addApplication(application);
-
-        processBindings(injector, everrest);
-        RequestDispatcher requestDispatcher = new RequestDispatcher(resources);
-        RequestHandlerImpl requestHandler = new RequestHandlerImpl(requestDispatcher, providers);
-        EverrestProcessor processor = new EverrestProcessor(config, dependencySupplier, requestHandler, everrest);
-        processor.start();
-
-        servletContext.setAttribute(EverrestConfiguration.class.getName(), config);
-        servletContext.setAttribute(Application.class.getName(), everrest);
-        servletContext.setAttribute(DependencySupplier.class.getName(), dependencySupplier);
-        servletContext.setAttribute(ResourceBinder.class.getName(), resources);
-        servletContext.setAttribute(ApplicationProviderBinder.class.getName(), providers);
-        servletContext.setAttribute(EverrestProcessor.class.getName(), processor);
         // use specific RuntimeDelegate instance which is able to work with guice rest service proxies.
         // (need for interceptors functionality)
         RuntimeDelegate.setInstance(new GuiceRuntimeDelegateImpl());
-    }
+        DependencySupplier dependencySupplier = new GuiceDependencySupplier(injector);
+        servletContext.setAttribute(DependencySupplier.class.getName(), dependencySupplier);
 
+        ServerConfigurationProperties config = injector.getInstance(ServerConfigurationProperties.class);
+        servletContext.setAttribute(ServerConfigurationProperties.class.getName(), config);
+
+        EverrestServletContextInitializer initializer = new EverrestServletContextInitializer(servletContext);
+        EverrestProcessor processor = initializer.createEverrestProcessor();
+        ResourceBinder resources = initializer.createResourceBinder();
+        ProviderBinder providers = initializer.createProviderBinder(config);
+        GuiceObjectFactoryProducer objectFactoryProducer = new GuiceObjectFactoryProducer(injector);
+        resources.setObjectFactoryProducer(objectFactoryProducer);
+        providers.setObjectFactoryProducer(objectFactoryProducer);
+        servletContext.setAttribute(EverrestServletContextInitializer.class.getName(), initializer);
+
+        EverrestApplication guiceComponents = new EverrestApplication();
+        processBindings(injector, guiceComponents);
+        processor.addApplication(guiceComponents);
+    }
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
         makeFileCollectorDestroyer().stopFileCollector();
-        ServletContext sctx = sce.getServletContext();
-        EverrestProcessor processor = (EverrestProcessor)sctx.getAttribute(EverrestProcessor.class.getName());
-        if (processor != null) {
-            processor.stop();
+        ServletContext servletContext = sce.getServletContext();
+        EverrestServletContextInitializer initializer = (EverrestServletContextInitializer) servletContext.getAttribute(EverrestServletContextInitializer.class.getName());
+        if (initializer != null) {
+            initializer.destroyEverrestProcessor();
+            servletContext.removeAttribute(EverrestServletContextInitializer.class.getName());
         }
     }
 
     protected FileCollectorDestroyer makeFileCollectorDestroyer() {
         return new FileCollectorDestroyer();
     }
-
 
     @Override
     protected final Injector getInjector() {
@@ -197,29 +171,33 @@ public abstract class EverrestGuiceContextListener extends GuiceServletContextLi
     }
 
     @SuppressWarnings({"unchecked"})
-    protected void processBindings(Injector injector, EverrestApplication everrest) {
+    protected void processBindings(Injector injector, EverrestApplication application) {
         for (Binding<?> binding : injector.getBindings().values()) {
             Key<?> bindingKey = binding.getKey();
             Type type = bindingKey.getTypeLiteral().getType();
             if (type instanceof Class) {
-                Class clazz = (Class)type;
-                if (clazz.getAnnotation(Provider.class) != null) {
-                    ProviderDescriptor providerDescriptor = new ProviderDescriptorImpl(clazz);
-                    everrest.addFactory(new GuiceObjectFactory<>(providerDescriptor, binding.getProvider()));
-                } else if (clazz.getAnnotation(Filter.class) != null) {
-                    FilterDescriptor filterDescriptor = new FilterDescriptorImpl(clazz);
-                    everrest.addFactory(new GuiceObjectFactory<>(filterDescriptor, binding.getProvider()));
-                } else if (clazz.getAnnotation(Path.class) != null) {
-                    ResourceDescriptor resourceDescriptor;
-                    if (bindingKey.getAnnotation() != null && bindingKey.getAnnotationType().isAssignableFrom(BindingPath.class)) {
-                        String path = ((BindingPath)bindingKey.getAnnotation()).value();
-                        resourceDescriptor = new AbstractResourceDescriptor(path, clazz);
+                Class aClass = (Class)type;
+                if (isRootResourceOrProvider(aClass)) {
+                    if (isRootResource(aClass)) {
+                        Optional<String> resourcePath = getConfiguredResourcePath(bindingKey);
+                        if (resourcePath.isPresent()) {
+                            application.addResource(resourcePath.get(), aClass);
+                        } else {
+                            application.addClass(aClass);
+                        }
                     } else {
-                        resourceDescriptor = new AbstractResourceDescriptor(clazz);
+                        application.addClass(aClass);
                     }
-                    everrest.addFactory(new GuiceObjectFactory<>(resourceDescriptor, binding.getProvider()));
                 }
             }
         }
+    }
+
+    private Optional<String> getConfiguredResourcePath(Key<?> bindingKey) {
+        String path = null;
+        if (bindingKey.getAnnotation() != null && bindingKey.getAnnotationType().isAssignableFrom(BindingPath.class)) {
+            path = ((BindingPath) bindingKey.getAnnotation()).value();
+        }
+        return Optional.ofNullable(path);
     }
 }

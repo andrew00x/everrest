@@ -11,8 +11,7 @@
 package org.everrest.core.impl.provider;
 
 import com.google.common.io.ByteStreams;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,6 +26,8 @@ import java.io.ByteArrayOutputStream;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
+import static org.everrest.core.impl.ServerConfigurationProperties.DEFAULT_MAX_BUFFER_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_MAX_BUFFER_SIZE;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -44,7 +45,7 @@ public class DataSourceEntityProviderTest {
     @Before
     public void setUp() throws Exception {
         context = mock(ApplicationContext.class, RETURNS_DEEP_STUBS);
-        when(context.getEverrestConfiguration().getMaxBufferSize()).thenReturn(128);
+        when(context.getConfigurationProperties().getIntegerProperty(EVERREST_MAX_BUFFER_SIZE, DEFAULT_MAX_BUFFER_SIZE)).thenReturn(128);
         ApplicationContext.setCurrent(context);
         dataSourceEntityProvider = new DataSourceEntityProvider();
     }
@@ -86,7 +87,7 @@ public class DataSourceEntityProviderTest {
 
     @Test
     public void buffersContentOfEntityStreamToFileAndReadsAsDataSource() throws Exception {
-        when(context.getEverrestConfiguration().getMaxBufferSize()).thenReturn(8);
+        when(context.getConfigurationProperties().getIntegerProperty(EVERREST_MAX_BUFFER_SIZE, DEFAULT_MAX_BUFFER_SIZE)).thenReturn(8);
 
         DataSource result = dataSourceEntityProvider.readFrom(DataSource.class, null, null, TEXT_PLAIN_TYPE, null, new ByteArrayInputStream(testContent));
         assertTrue(result instanceof FileDataSource);

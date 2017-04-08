@@ -10,16 +10,15 @@
  *******************************************************************************/
 package org.everrest.core.impl.provider.ext;
 
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
-import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response;
 import java.io.File;
 
+import static org.everrest.core.$matchers.ExceptionMatchers.webApplicationExceptionWithStatus;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -56,34 +55,19 @@ public class NoFileEntityProviderTest {
 
     @Test
     public void throwsWebApplicationExceptionWhenTryToGetSizeOfFile() {
-        thrown.expect(webApplicationExceptionBadRequestMatcher());
+        thrown.expect(webApplicationExceptionWithStatus(Response.Status.BAD_REQUEST));
         noFileEntityProvider.getSize(null, null, null, null, null);
     }
 
     @Test
     public void readsContentOfEntityStreamAsFile() throws Exception {
-        thrown.expect(webApplicationExceptionBadRequestMatcher());
+        thrown.expect(webApplicationExceptionWithStatus(Response.Status.BAD_REQUEST));
         noFileEntityProvider.readFrom(File.class, null, null, null, null, null);
     }
 
     @Test
     public void writesFileToOutputStream() throws Exception {
-        thrown.expect(webApplicationExceptionBadRequestMatcher());
+        thrown.expect(webApplicationExceptionWithStatus(Response.Status.BAD_REQUEST));
         noFileEntityProvider.writeTo(null, null, null, null, null, null, null);
-    }
-
-    private BaseMatcher<Throwable> webApplicationExceptionBadRequestMatcher() {
-        return new BaseMatcher<Throwable>() {
-            @Override
-            public boolean matches(Object item) {
-                return item instanceof WebApplicationException
-                       && ((WebApplicationException)item).getResponse().getStatus() == 400;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText("WebApplicationException with status 400, \"Bad Request\"");
-            }
-        };
     }
 }

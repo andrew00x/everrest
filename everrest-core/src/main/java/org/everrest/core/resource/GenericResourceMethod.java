@@ -12,7 +12,6 @@ package org.everrest.core.resource;
 
 import org.everrest.core.Parameter;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -33,12 +32,4 @@ public interface GenericResourceMethod {
 
     /** @return Java type returned by method, see {@link #getMethod()} */
     Class<?> getResponseType();
-
-    /**
-     * Get set or additional (not JAX-RS specific) annotation. Set of annotations in implementation specific and it is not guaranteed this
-     * method will return all annotations applied to the method.
-     *
-     * @return addition annotation
-     */
-    Annotation[] getAnnotations();
 }

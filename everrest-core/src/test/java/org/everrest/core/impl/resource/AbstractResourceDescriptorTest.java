@@ -13,7 +13,6 @@ package org.everrest.core.impl.resource;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Appender;
-
 import org.everrest.core.BaseObjectModel;
 import org.everrest.core.ConstructorDescriptor;
 import org.everrest.core.FieldInjector;
@@ -31,14 +30,13 @@ import org.junit.rules.ExpectedException;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.security.PermitAll;
-import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.Encoded;
 import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.NameBinding;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -50,6 +48,10 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Request;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Map;
 
@@ -753,136 +755,6 @@ public class AbstractResourceDescriptorTest {
         public void m1(String entity) {}
     }
 
-    @Test
-    public void processesSecurityAnnotationFromMethod() {
-        ResourceDescriptor resource = new AbstractResourceDescriptor(ResourceWithMethodWithSecurityAnnotation.class);
-        List<ResourceMethodDescriptor> resourceMethods = resource.getResourceMethods().get("GET");
-
-        assertEquals(1, resourceMethods.get(0).getAnnotations().length);
-        RolesAllowed rolesAllowed = (RolesAllowed)resourceMethods.get(0).getAnnotations()[0];
-        assertNotNull(rolesAllowed);
-    }
-
-    @Path("a")
-    public static class ResourceWithMethodWithSecurityAnnotation {
-        @RolesAllowed("user")
-        @GET
-        public void m1() {}
-    }
-
-    @Test
-    public void processesSecurityAnnotationFromClass() {
-        ResourceDescriptor resource = new AbstractResourceDescriptor(ResourceWithSecurityAnnotation.class);
-        List<ResourceMethodDescriptor> resourceMethods = resource.getResourceMethods().get("GET");
-
-        assertEquals(1, resourceMethods.get(0).getAnnotations().length);
-        RolesAllowed rolesAllowed = (RolesAllowed)resourceMethods.get(0).getAnnotations()[0];
-        assertNotNull(rolesAllowed);
-    }
-
-    @RolesAllowed("user")
-    @Path("a")
-    public static class ResourceWithSecurityAnnotation {
-        @GET
-        public void m1() {}
-    }
-
-    @Test
-    public void ignoresSecurityAnnotationFromClassWhenMethodHasOwn() {
-        ResourceDescriptor resource = new AbstractResourceDescriptor(ResourceWithSecurityAnnotationOnClassAndMethod.class);
-        List<ResourceMethodDescriptor> resourceMethods = resource.getResourceMethods().get("GET");
-
-        assertEquals(1, resourceMethods.get(0).getAnnotations().length);
-        PermitAll permitAll = (PermitAll)resourceMethods.get(0).getAnnotations()[0];
-        assertNotNull(permitAll);
-    }
-
-    @RolesAllowed("user")
-    @Path("a")
-    public static class ResourceWithSecurityAnnotationOnClassAndMethod {
-        @PermitAll
-        @GET
-        public void m1() {}
-    }
-
-    @Test
-    public void inheritsSecurityAnnotationFromMethodOnParentInterface() {
-        ResourceDescriptor resource = new AbstractResourceDescriptor(ResourceWithSecurityAnnotationOnMethodInParentInterface.class);
-        List<ResourceMethodDescriptor> resourceMethods = resource.getResourceMethods().get("GET");
-
-        assertEquals(1, resourceMethods.get(0).getAnnotations().length);
-        RolesAllowed rolesAllowed = (RolesAllowed)resourceMethods.get(0).getAnnotations()[0];
-        assertNotNull(rolesAllowed);
-    }
-
-    public interface InterfaceWithSecurityAnnotationOnMethod {
-        @RolesAllowed("user") void m1();
-    }
-
-    @Path("a")
-    public static class ResourceWithSecurityAnnotationOnMethodInParentInterface implements InterfaceWithSecurityAnnotationOnMethod {
-        @GET public void m1() {}
-    }
-
-    @Test
-    public void inheritsSecurityAnnotationFromParentInterface() {
-        ResourceDescriptor resource = new AbstractResourceDescriptor(ResourceWithSecurityAnnotationOnParentInterface.class);
-        List<ResourceMethodDescriptor> resourceMethods = resource.getResourceMethods().get("GET");
-
-        assertEquals(1, resourceMethods.get(0).getAnnotations().length);
-        RolesAllowed rolesAllowed = (RolesAllowed)resourceMethods.get(0).getAnnotations()[0];
-        assertNotNull(rolesAllowed);
-    }
-
-    @RolesAllowed("user")
-    public interface InterfaceWithSecurityAnnotation {
-        void m1();
-    }
-
-    @Path("a")
-    public static class ResourceWithSecurityAnnotationOnParentInterface implements InterfaceWithSecurityAnnotation {
-        @GET public void m1() {}
-    }
-
-    @Test
-    public void inheritsSecurityAnnotationFromMethodOnParentClass() {
-        ResourceDescriptor resource = new AbstractResourceDescriptor(ResourceWithSecurityAnnotationOnMethodInParentClass.class);
-        List<ResourceMethodDescriptor> resourceMethods = resource.getResourceMethods().get("GET");
-
-        assertEquals(1, resourceMethods.get(0).getAnnotations().length);
-        RolesAllowed rolesAllowed = (RolesAllowed)resourceMethods.get(0).getAnnotations()[0];
-        assertNotNull(rolesAllowed);
-    }
-
-    public static abstract class ClassWithSecurityAnnotationOnMethod {
-        @RolesAllowed("user") public abstract void m1();
-    }
-
-    @Path("a")
-    public static class ResourceWithSecurityAnnotationOnMethodInParentClass extends ClassWithSecurityAnnotationOnMethod {
-        @GET public void m1() {}
-    }
-
-    @Test
-    public void inheritsSecurityAnnotationFromParentClass() {
-        ResourceDescriptor resource = new AbstractResourceDescriptor(ResourceWithSecurityAnnotationOnParentClass.class);
-        List<ResourceMethodDescriptor> resourceMethods = resource.getResourceMethods().get("GET");
-
-        assertEquals(1, resourceMethods.get(0).getAnnotations().length);
-        RolesAllowed rolesAllowed = (RolesAllowed)resourceMethods.get(0).getAnnotations()[0];
-        assertNotNull(rolesAllowed);
-    }
-
-    @RolesAllowed("user")
-    public static abstract class ClassWithSecurityAnnotation {
-        public abstract void m1();
-    }
-
-    @Path("a")
-    public static class ResourceWithSecurityAnnotationOnParentClass extends ClassWithSecurityAnnotation {
-        @GET public void m1() {}
-    }
-
     private List<FieldInjector> filterFieldsInsertedByJacocoFrameworkDuringInstrumentation(List<FieldInjector> initialList) {
         return initialList.stream().filter(fieldInjector -> !fieldInjector.getName().startsWith("$jacocoData")).collect(toList());
     }
@@ -908,5 +780,119 @@ public class AbstractResourceDescriptorTest {
     public static class Resource2 extends Resource1 {
         @Override
         public void m1() {}
+    }
+
+    @Test
+    public void retrievesConsumesAnnotationFromImplementedInterfaces() {
+        ResourceDescriptor resource = new AbstractResourceDescriptor(Resource3.class);
+        assertEquals(newArrayList(new MediaType("text", "plain")), resource.getResourceMethods().get("GET").get(0).consumes());
+    }
+
+    @Test
+    public void retrievesConsumesAnnotationFromImplementedInterfacesWithRespectToClassHierarchy() {
+        ResourceDescriptor resource = new AbstractResourceDescriptor(Resource5.class);
+        assertEquals(newArrayList(new MediaType("text", "xml")), resource.getResourceMethods().get("GET").get(0).consumes());
+    }
+
+    @Test
+    public void ignoresConsumesAnnotationFromImplementedInterfacesIfClassHasOwnAnnotation() {
+        ResourceDescriptor resource = new AbstractResourceDescriptor(Resource4.class);
+        assertEquals(newArrayList(new MediaType("text", "xml")), resource.getResourceMethods().get("GET").get(0).consumes());
+    }
+
+    @Test
+    public void failsWhenResourceClassImplementsMoreThanOnInterfaceWithConflictConsumesAnnotations() {
+        thrown.expect(RuntimeException.class);
+        thrown.expectMessage("Conflict of JAX-RS annotation on class");
+
+        new AbstractResourceDescriptor(Resource6.class);
+    }
+
+    @Test
+    public void retrievesProducesAnnotationFromImplementedInterfaces() {
+        ResourceDescriptor resource = new AbstractResourceDescriptor(Resource3.class);
+        assertEquals(newArrayList(new MediaType("text", "plain")), resource.getResourceMethods().get("GET").get(0).produces());
+    }
+
+    @Test
+    public void retrievesProducesAnnotationFromImplementedInterfacesWithRespectToClassHierarchy() {
+        ResourceDescriptor resource = new AbstractResourceDescriptor(Resource5.class);
+        assertEquals(newArrayList(new MediaType("text", "xml")), resource.getResourceMethods().get("GET").get(0).produces());
+    }
+
+    @Test
+    public void ignoresProducesAnnotationFromImplementedInterfacesIfClassHasOwnAnnotation() {
+        ResourceDescriptor resource = new AbstractResourceDescriptor(Resource4.class);
+        assertEquals(newArrayList(new MediaType("text", "xml")), resource.getResourceMethods().get("GET").get(0).produces());
+    }
+
+    @Test
+    public void failsWhenResourceClassImplementsMoreThanOnInterfaceWithConflictProducesAnnotations() {
+        thrown.expect(RuntimeException.class);
+        thrown.expectMessage("Conflict of JAX-RS annotation on class");
+
+        new AbstractResourceDescriptor(Resource6.class);
+    }
+
+    @Path("/a")
+    public static class Resource3 implements IResource1 {
+        @GET
+        public void m1() {}
+    }
+
+    @Consumes("text/xml")
+    @Produces("text/xml")
+    @Path("/a")
+    public static class Resource4 implements IResource1 {
+        @GET
+        public void m1() {}
+    }
+
+    @Path("/a")
+    public static class Resource5 extends Resource3 implements IResource2 {
+        @GET
+        public void m1() {}
+    }
+
+    @Path("/a")
+    public static class Resource6 implements IResource1, IResource2 {
+        @GET
+        public void m1() {}
+    }
+
+    @Consumes("text/plain")
+    @Produces("text/plain")
+    public interface IResource1 {
+    }
+
+    @Consumes("text/xml")
+    @Produces("text/xml")
+    public interface IResource2 {
+    }
+
+    @NameBinding
+    @Target({ElementType.TYPE, ElementType.METHOD})
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface BBinding8 {
+    }
+
+    @BBinding8
+    @Path("/a")
+    public static class BBinding8Resource {
+        @GET
+        public void m1() {}
+    }
+
+    @Test
+    public void processesNameBindingAnnotationFromClass() {
+        ResourceDescriptor resource = new AbstractResourceDescriptor(BBinding8Resource.class);
+        assertEquals(BBinding8.class, resource.getNameBindingAnnotations()[0].annotationType());
+        assertEquals(BBinding8.class, resource.getNameBindingAnnotations()[0].annotationType());
+    }
+
+    @Test
+    public void processesNameBindingAnnotationFromMethod() {
+        ResourceDescriptor resource = new AbstractResourceDescriptor(BBinding8Resource.class);
+        assertEquals(BBinding8.class, resource.getNameBindingAnnotations()[0].annotationType());
     }
 }

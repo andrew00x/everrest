@@ -11,10 +11,10 @@
 package org.everrest.core.impl.provider;
 
 import com.google.common.io.ByteStreams;
-
 import org.everrest.core.provider.EntityProvider;
 import org.everrest.core.util.NoSyncByteArrayOutputStream;
 
+import javax.annotation.Priority;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.ext.Provider;
@@ -26,10 +26,12 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 
 import static javax.ws.rs.core.HttpHeaders.CONTENT_LENGTH;
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
 
 /**
  * @author andrew00x
  */
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 public class ByteEntityProvider implements EntityProvider<byte[]> {
 

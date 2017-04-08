@@ -13,31 +13,29 @@ package org.everrest.guice;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.servlet.ServletModule;
-
-import org.everrest.core.impl.EverrestConfiguration;
-import org.everrest.core.servlet.EverrestServletContextInitializer;
+import org.everrest.core.impl.ServerConfigurationProperties;
 
 import javax.inject.Named;
 import javax.servlet.ServletContext;
 
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_ASYNCHRONOUS;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_ASYNCHRONOUS_CACHE_SIZE;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_ASYNCHRONOUS_JOB_TIMEOUT;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_ASYNCHRONOUS_POOL_SIZE;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_ASYNCHRONOUS_QUEUE_SIZE;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_ASYNCHRONOUS_SERVICE_PATH;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_CHECK_SECURITY;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_HTTP_METHOD_OVERRIDE;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_MAX_BUFFER_SIZE;
-import static org.everrest.core.impl.EverrestConfiguration.EVERREST_NORMALIZE_URI;
-import static org.everrest.core.impl.EverrestConfiguration.METHOD_INVOKER_DECORATOR_FACTORY;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_ASYNCHRONOUS;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_ASYNCHRONOUS_CACHE_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_ASYNCHRONOUS_JOB_TIMEOUT;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_ASYNCHRONOUS_POOL_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_ASYNCHRONOUS_QUEUE_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_ASYNCHRONOUS_SERVICE_PATH;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_CHECK_SECURITY;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_HTTP_METHOD_OVERRIDE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_MAX_BUFFER_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_NORMALIZE_URI;
+import static org.everrest.core.impl.ServerConfigurationProperties.METHOD_INVOKER_DECORATOR_FACTORY;
 
 /**
  * @author andrew00x
  */
 public class EverrestConfigurationModule extends ServletModule {
 
-    static class EverrestConfigurationProvider implements Provider<EverrestConfiguration> {
+    static class EverrestConfigurationProvider implements Provider<ServerConfigurationProperties> {
         ServletContext servletContext;
 
         EverrestConfigurationProvider(ServletContext servletContext) {
@@ -82,8 +80,8 @@ public class EverrestConfigurationModule extends ServletModule {
         private String websocketReadTimeout;
 
         @Override
-        public EverrestConfiguration get() {
-            final EverrestConfiguration configuration = new EverrestServletContextInitializer(servletContext).createConfiguration();
+        public ServerConfigurationProperties get() {
+            final ServerConfigurationProperties configuration = new ServerConfigurationProperties();
             setConfigurationPropertyIfNotNull(configuration, EVERREST_ASYNCHRONOUS, asynchronous);
             setConfigurationPropertyIfNotNull(configuration, EVERREST_ASYNCHRONOUS_CACHE_SIZE, asynchronousCacheSize);
             setConfigurationPropertyIfNotNull(configuration, EVERREST_ASYNCHRONOUS_JOB_TIMEOUT, asynchronousJobTimeout);
@@ -99,15 +97,15 @@ public class EverrestConfigurationModule extends ServletModule {
             return configuration;
         }
 
-        private void setConfigurationPropertyIfNotNull(EverrestConfiguration everrestConfiguration, String name, String value) {
+        private void setConfigurationPropertyIfNotNull(ServerConfigurationProperties serverConfiguration, String name, String value) {
             if (value != null) {
-                everrestConfiguration.setProperty(name, value);
+                serverConfiguration.setProperty(name, value);
             }
         }
     }
 
     @Override
     protected void configureServlets() {
-        bind(EverrestConfiguration.class).toProvider(new EverrestConfigurationProvider(getServletContext()));
+        bind(ServerConfigurationProperties.class).toProvider(new EverrestConfigurationProvider(getServletContext()));
     }
 }

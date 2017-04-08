@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.servlet;
 
+import org.everrest.core.ConfigurationProperties;
 import org.everrest.core.ExtHttpHeaders;
 import org.everrest.core.impl.ContainerRequest;
 import org.everrest.core.impl.InputHeadersMap;
@@ -78,12 +79,12 @@ public class ServletContainerRequest extends ContainerRequest {
         }
         final URI requestUri = URI.create(requestUriBuilder.toString());
         return new ServletContainerRequest(getMethod(req), requestUri, baseUri, getEntityStream(req), getHeaders(req),
-                                           getSecurityContext(req));
+                                           getSecurityContext(req), new ServletRequestAttributesWrapper(req));
     }
 
     private ServletContainerRequest(String method, URI requestUri, URI baseUri, InputStream entityStream,
-                                    MultivaluedMap<String, String> httpHeaders, SecurityContext securityContext) {
-        super(method, requestUri, baseUri, entityStream, httpHeaders, securityContext);
+                                    MultivaluedMap<String, String> httpHeaders, SecurityContext securityContext, ConfigurationProperties properties) {
+        super(method, requestUri, baseUri, entityStream, httpHeaders, securityContext, properties);
     }
 
     /**

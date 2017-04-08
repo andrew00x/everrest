@@ -18,7 +18,7 @@ import java.util.Map;
 public class ObjectValue extends JsonValue {
 
     /** Children. */
-    private final Map<String, JsonValue> children = new LinkedHashMap<String, JsonValue>();
+    private final Map<String, JsonValue> children = new LinkedHashMap<>();
 
 
     @Override

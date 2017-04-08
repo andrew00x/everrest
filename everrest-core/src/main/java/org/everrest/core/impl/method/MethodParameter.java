@@ -11,7 +11,6 @@
 package org.everrest.core.impl.method;
 
 import com.google.common.base.MoreObjects;
-
 import org.everrest.core.Parameter;
 
 import java.lang.annotation.Annotation;
@@ -24,14 +23,13 @@ import java.lang.reflect.Type;
  */
 public class MethodParameter implements Parameter {
     /**
-     * External annotations for parameter, external it mind some other then
+     * External annotations for parameter, external minds some other than
      * contains in {@link ParameterHelper#RESOURCE_METHOD_PARAMETER_ANNOTATIONS}.
      */
     private final Annotation[] additional;
 
     /**
-     * One of annotations from
-     * {@link ParameterHelper#RESOURCE_METHOD_PARAMETER_ANNOTATIONS}.
+     * One of annotations from {@link ParameterHelper#RESOURCE_METHOD_PARAMETER_ANNOTATIONS}.
      */
     private final Annotation annotation;
 
@@ -56,19 +54,13 @@ public class MethodParameter implements Parameter {
     /**
      * Constructs new instance of MethodParameter.
      *
-     * @param annotation
-     *         see {@link #annotation}
-     * @param additional
-     *         see {@link #additional}
-     * @param clazz
-     *         parameter class
-     * @param genericType
-     *         generic parameter type
-     * @param defaultValue
-     *         default value for parameter. See
-     *         {@link javax.ws.rs.DefaultValue}.
-     * @param encoded
-     *         true if parameter must not be decoded false otherwise
+     * @param annotation   see {@link #annotation}
+     * @param additional   see {@link #additional}
+     * @param clazz        parameter class
+     * @param genericType  generic parameter type
+     * @param defaultValue default value for parameter. See
+     *                     {@link javax.ws.rs.DefaultValue}.
+     * @param encoded      true if parameter must not be decoded false otherwise
      */
     public MethodParameter(Annotation annotation, Annotation[] additional, Class<?> clazz, Type genericType,
                            String defaultValue, boolean encoded) {
@@ -80,42 +72,35 @@ public class MethodParameter implements Parameter {
         this.encoded = encoded;
     }
 
-
     @Override
     public Annotation[] getAnnotations() {
         return additional;
     }
-
 
     @Override
     public Annotation getAnnotation() {
         return annotation;
     }
 
-
     @Override
     public boolean isEncoded() {
         return encoded;
     }
-
 
     @Override
     public String getDefaultValue() {
         return defaultValue;
     }
 
-
     @Override
     public Type getGenericType() {
         return genericType;
     }
 
-
     @Override
     public Class<?> getParameterClass() {
         return clazz;
     }
-
 
     @Override
     public String toString() {

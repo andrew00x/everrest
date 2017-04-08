@@ -11,31 +11,21 @@
 package org.everrest.core.impl;
 
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Keeps objects from environment (e. g. servlet container) which can be passed
- * in resource. Parameter must be annotated by {@link javax.ws.rs.core.Context}.
+ * in resource. Parameter or field must be annotated by {@link javax.ws.rs.core.Context}.
  */
-public class EnvironmentContext extends HashMap<Class<?>, Object> {
-    private static final long serialVersionUID = 5409617947238152318L;
+public class EnvironmentContext {
+    private final Map<Class<?>, Object> store = new HashMap<>();
 
-    /** {@link ThreadLocal} EnvironmentContext. */
-    private static ThreadLocal<EnvironmentContext> current = new ThreadLocal<EnvironmentContext>();
-
-    /**
-     * @return preset {@link ThreadLocal} EnvironmentContext
-     * @see ThreadLocal
-     */
-    public static EnvironmentContext getCurrent() {
-        return current.get();
+    public <T, I extends T> void put(Class<T> aClass, I instance) {
+        store.put(aClass, instance);
     }
 
-    /**
-     * @param env
-     *         set {@link ThreadLocal} EnvironmentContext
-     * @see ThreadLocal
-     */
-    public static void setCurrent(EnvironmentContext env) {
-        current.set(env);
+    @SuppressWarnings("unchecked")
+    public <T> T get(Class<T> aClass) {
+        return (T) store.get(aClass);
     }
 }

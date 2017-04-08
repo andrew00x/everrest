@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.everrest.core;
 
+import org.everrest.core.impl.SingletonObjectFactory;
 import org.junit.Test;
 
 import static org.junit.Assert.assertSame;

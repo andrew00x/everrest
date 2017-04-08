@@ -39,7 +39,7 @@ public class ByteArrayContainerResponseWriterTest {
     public void writesHeadersOfResponse() throws Exception {
         MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
         headers.putSingle("content-type", "text/plain");
-        when(containerResponse.getHttpHeaders()).thenReturn(headers);
+        when(containerResponse.getHeaders()).thenReturn(headers);
 
         responseWriter.writeHeaders(containerResponse);
 

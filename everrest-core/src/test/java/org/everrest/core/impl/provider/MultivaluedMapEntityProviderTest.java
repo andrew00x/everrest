@@ -11,8 +11,7 @@
 package org.everrest.core.impl.provider;
 
 import com.google.common.collect.ImmutableMap;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.MultivaluedMapImpl;
 import org.everrest.core.tools.EmptyInputStream;
 import org.junit.After;

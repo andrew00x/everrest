@@ -102,7 +102,7 @@ public class RuntimeDelegateImpl extends RuntimeDelegate {
         return typeSupportedByHeaderDelegate;
     }
 
-    /** End Points is not supported. {@inheritDoc} */
+    /** End Point is not supported. {@inheritDoc} */
     @Override
     public <T> T createEndpoint(Application applicationConfig, Class<T> type) {
         throw new UnsupportedOperationException("End Points is not supported");

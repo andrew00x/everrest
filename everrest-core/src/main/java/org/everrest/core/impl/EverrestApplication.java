@@ -10,9 +10,6 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ObjectFactory;
-import org.everrest.core.ObjectModel;
-
 import javax.ws.rs.core.Application;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -20,7 +17,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Defines the JAX-RS components depending on EverrestConfiguration. It is uses as 'wrapper' for custom instance of Application.
+ * Defines the JAX-RS components, it is uses as 'wrapper' for custom instance of Application.
  * <p/>
  * Usage:
  * <p/>
@@ -28,7 +25,7 @@ import java.util.Set;
  * EverrestProcessor processor = ...
  * Application app = ...
  * EverrestApplication everrest = new EverrestApplication();
- * EverrestConfiguration config = ...
+ * ServerConfigurationProperties config = ...
  * ...
  * everrest.addApplication(app);
  * processor.addApplication(everrest);
@@ -37,16 +34,14 @@ import java.util.Set;
  * @author andrew00x
  */
 public class EverrestApplication extends Application {
-    private final Set<ObjectFactory<? extends ObjectModel>> factories;
-    private final Set<Class<?>>                             classes;
-    private final Set<Object>                               singletons;
-    private final Map<String, Class<?>>                     resourceClasses;
-    private final Map<String, Object>                       resourceSingletons;
+    private final Set<Class<?>>         classes;
+    private final Set<Object>           singletons;
+    private final Map<String, Class<?>> resourceClasses;
+    private final Map<String, Object>   resourceSingletons;
 
     public EverrestApplication() {
         classes = new LinkedHashSet<>();
         singletons = new LinkedHashSet<>();
-        factories = new LinkedHashSet<>();
         resourceClasses = new LinkedHashMap<>();
         resourceSingletons = new LinkedHashMap<>();
     }
@@ -57,10 +52,6 @@ public class EverrestApplication extends Application {
 
     public void addSingleton(Object singleton) {
         singletons.add(singleton);
-    }
-
-    public void addFactory(ObjectFactory<? extends ObjectModel> factory) {
-        factories.add(factory);
     }
 
     public void addResource(String uriPattern, Class<?> resourceClass) {
@@ -79,18 +70,10 @@ public class EverrestApplication extends Application {
         return resourceSingletons;
     }
 
-    public Set<ObjectFactory<? extends ObjectModel>> getFactories() {
-        return factories;
-    }
-
     /** @see javax.ws.rs.core.Application#getClasses() */
     @Override
     public Set<Class<?>> getClasses() {
-        Set<Class<?>> myClasses = new LinkedHashSet<>(this.classes);
-        for (ObjectFactory<? extends ObjectModel> factory : getFactories()) {
-            myClasses.add(factory.getObjectModel().getObjectClass());
-        }
-        return myClasses;
+        return classes;
     }
 
     /** @see javax.ws.rs.core.Application#getSingletons() */
@@ -100,7 +83,7 @@ public class EverrestApplication extends Application {
     }
 
     /**
-     * Add components defined by <code>application</code> to this instance.
+     * Add components defined by {@code application} to this instance.
      *
      * @param application
      *         application
@@ -126,14 +109,6 @@ public class EverrestApplication extends Application {
             }
             if (application instanceof EverrestApplication) {
                 EverrestApplication everrest = (EverrestApplication)application;
-                Set<ObjectFactory<? extends ObjectModel>> appFactories = everrest.getFactories();
-                if (!appFactories.isEmpty()) {
-                    Set<ObjectFactory<? extends ObjectModel>> allFactories = new LinkedHashSet<>(this.factories.size() + appFactories.size());
-                    allFactories.addAll(appFactories);
-                    allFactories.addAll(this.factories);
-                    this.factories.clear();
-                    this.factories.addAll(allFactories);
-                }
 
                 Map<String, Class<?>> appResourceClasses = everrest.getResourceClasses();
                 if (!appResourceClasses.isEmpty()) {

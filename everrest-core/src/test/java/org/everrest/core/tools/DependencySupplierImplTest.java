@@ -14,7 +14,6 @@ import org.everrest.core.FieldInjector;
 import org.everrest.core.Parameter;
 import org.everrest.core.impl.ConstructorParameter;
 import org.everrest.core.impl.FieldInjectorImpl;
-import org.everrest.core.impl.method.ParameterResolverFactory;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -154,7 +153,7 @@ public class DependencySupplierImplTest {
     }
 
     private FieldInjector createFieldInjector(java.lang.reflect.Field field) {
-        return new FieldInjectorImpl(field, new ParameterResolverFactory());
+        return new FieldInjectorImpl(field);
     }
 
     private DependencySupplierImpl createDependencySupplier(Object... instances) {

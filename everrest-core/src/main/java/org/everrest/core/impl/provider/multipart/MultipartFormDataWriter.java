@@ -34,7 +34,7 @@ public class MultipartFormDataWriter {
     private static final byte[]       HEADER_LINE_DELIM = ": ".getBytes();
     private static final byte[]       HYPHENS           = "--".getBytes();
 
-    private Providers providers;
+    private final Providers providers;
 
     public MultipartFormDataWriter(Providers providers) {
         this.providers = providers;

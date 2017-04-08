@@ -10,14 +10,15 @@
  *******************************************************************************/
 package org.everrest.core.impl.provider;
 
-import org.apache.commons.fileupload.DefaultFileItemFactory;
 import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.FileUpload;
 import org.apache.commons.fileupload.FileUploadException;
-import org.everrest.core.ApplicationContext;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.FileCollector;
 import org.everrest.core.provider.EntityProvider;
 
+import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.core.Context;
@@ -32,16 +33,21 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Iterator;
 
+import static org.everrest.core.impl.ServerConfigurationProperties.DEFAULT_MAX_BUFFER_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_MAX_BUFFER_SIZE;
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
+
 /**
  * Processing multipart data based on apache file-upload.
  *
  * @author andrew00x
  */
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 @Consumes({"multipart/*"})
 public class MultipartFormDataEntityProvider implements EntityProvider<Iterator<FileItem>> {
 
-    protected HttpServletRequest httpRequest;
+    protected final HttpServletRequest httpRequest;
 
     public MultipartFormDataEntityProvider(@Context HttpServletRequest httpRequest) {
         this.httpRequest = httpRequest;
@@ -69,9 +75,9 @@ public class MultipartFormDataEntityProvider implements EntityProvider<Iterator<
                                        InputStream entityStream) throws IOException {
         try {
             ApplicationContext context = ApplicationContext.getCurrent();
-            int bufferSize = context.getEverrestConfiguration().getMaxBufferSize();
-            DefaultFileItemFactory factory = new DefaultFileItemFactory(bufferSize, FileCollector.getInstance().getStore());
-            FileUpload upload = new FileUpload(factory);
+            int bufferSize = context.getConfigurationProperties().getIntegerProperty(EVERREST_MAX_BUFFER_SIZE, DEFAULT_MAX_BUFFER_SIZE);
+            DiskFileItemFactory factory = new DiskFileItemFactory(bufferSize, FileCollector.getInstance().getStore());
+            ServletFileUpload upload = new ServletFileUpload(factory);
             return upload.parseRequest(httpRequest).iterator();
         } catch (FileUploadException e) {
             throw new IOException(String.format("Can't process multipart data item, %s", e));

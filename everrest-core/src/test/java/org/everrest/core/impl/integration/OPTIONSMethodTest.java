@@ -68,7 +68,7 @@ public class OPTIONSMethodTest extends BaseTest {
         ContainerResponse response = launcher.service("OPTIONS", "/b", "", null, null, null);
 
         assertEquals(200, response.getStatus());
-        assertEquals(new MediaType("application", "vnd.sun.wadl+xml"), response.getContentType());
+        assertEquals(new MediaType("application", "vnd.sun.wadl+xml"), response.getMediaType());
         assertNotNull(response.getResponse().getEntity());
     }
 

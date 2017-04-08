@@ -1,7 +1,6 @@
 package org.everrest.core.impl.provider;
 
 import com.google.common.io.ByteStreams;
-
 import org.everrest.core.impl.FileCollector;
 import org.junit.After;
 import org.junit.Before;
@@ -13,7 +12,11 @@ import java.io.InputStream;
 import java.util.Random;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * @author andrew00x
@@ -43,7 +46,7 @@ public class IOHelperTest {
     }
 
     @Test
-    public void buffersGivenInputStreamInMemoryWhenLengthExceedsThreshold() throws Exception {
+    public void buffersGivenInputStreamOnFileSystemWhenLengthExceedsThreshold() throws Exception {
         InputStream inputStream = new ByteArrayInputStream(testContent);
         InputStream bufferedStream = IOHelper.bufferStream(inputStream, testContent.length - 1);
 
@@ -53,5 +56,26 @@ public class IOHelperTest {
         } finally {
             bufferedStream.close();
         }
+    }
+
+    @Test
+    public void testsIsEmptyWhenStreamSupportsMarkReset() throws Exception {
+        InputStream entity = mock(InputStream.class);
+        when(entity.markSupported()).thenReturn(true);
+        when(entity.read()).thenReturn(1);
+        assertFalse(IOHelper.isEmpty(entity));
+        verify(entity).mark(1);
+    }
+
+    @Test
+    public void testsIsEmptyWhenStreamDoesNotSupportMarkReset() throws Exception {
+        InputStream entity = mock(InputStream.class);
+        when(entity.available()).thenReturn(1);
+        assertFalse(IOHelper.isEmpty(entity));
+    }
+
+    @Test
+    public void testsIsEmptyReturnsFalseWhenStreamIsNull() {
+        assertTrue(IOHelper.isEmpty(null));
     }
 }

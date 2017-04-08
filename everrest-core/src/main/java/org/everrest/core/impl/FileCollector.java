@@ -16,6 +16,7 @@ import java.security.SecureRandom;
 
 /** Provides store for temporary files. */
 public final class FileCollector {
+    private static final String SHUTDOWN_HOOK_THREAD_NAME = "everrest.FileCleanerShutdownHook";
     private static final String PREF = "everrest";
     private static final String SUFF = ".tmp";
 
@@ -33,7 +34,7 @@ public final class FileCollector {
 
     private FileCollector(File store) {
         this.store = store;
-        cleaner = new Thread() {
+        cleaner = new Thread(SHUTDOWN_HOOK_THREAD_NAME) {
             @Override
             public void run() {
                 clean();
@@ -61,7 +62,7 @@ public final class FileCollector {
     }
 
     /**
-     * Create file with specified <code>fileName</code> in storage.
+     * Create file with specified {@code fileName} in storage.
      *
      * @param fileName
      *         file name
@@ -70,7 +71,7 @@ public final class FileCollector {
      *         if any i/o error occurs
      */
     public File createFile(String fileName) throws IOException {
-        checkStore();
+        createStoreIfNeed();
         return new File(store, fileName);
     }
 
@@ -82,16 +83,16 @@ public final class FileCollector {
      *         if any i/o error occurs
      */
     public File createFile() throws IOException {
-        checkStore();
+        createStoreIfNeed();
         return File.createTempFile(PREF, SUFF, store);
     }
 
     public File getStore() {
-        checkStore();
+        createStoreIfNeed();
         return store;
     }
 
-    private void checkStore() {
+    private void createStoreIfNeed() {
         if (!store.exists()) {
             store.mkdirs();
         }

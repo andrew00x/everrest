@@ -12,8 +12,7 @@ package org.everrest.core.impl.provider;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CharStreams;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;

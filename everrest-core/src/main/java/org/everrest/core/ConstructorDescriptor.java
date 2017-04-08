@@ -10,6 +10,8 @@
  *******************************************************************************/
 package org.everrest.core;
 
+import org.everrest.core.impl.ApplicationContext;
+
 import java.lang.reflect.Constructor;
 import java.util.List;
 

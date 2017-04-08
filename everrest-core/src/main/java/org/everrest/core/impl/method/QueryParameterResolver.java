@@ -10,8 +10,10 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
+import org.everrest.core.method.ParameterResolver;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 
 import javax.ws.rs.QueryParam;
 
@@ -23,20 +25,15 @@ public class QueryParameterResolver implements ParameterResolver<QueryParam> {
     private final QueryParam          queryParam;
     private final TypeProducerFactory typeProducerFactory;
 
-    /**
-     * @param queryParam
-     *         QueryParam
-     */
     QueryParameterResolver(QueryParam queryParam, TypeProducerFactory typeProducerFactory) {
         this.queryParam = queryParam;
         this.typeProducerFactory = typeProducerFactory;
     }
 
-
     @Override
     public Object resolve(org.everrest.core.Parameter parameter, ApplicationContext context) throws Exception {
         String param = this.queryParam.value();
-        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType());
+        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType(), parameter.getAnnotations());
         return typeProducer.createValue(param, context.getQueryParameters(!parameter.isEncoded()), parameter.getDefaultValue());
     }
 }

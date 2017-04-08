@@ -11,8 +11,7 @@
 package org.everrest.core.impl;
 
 import com.google.common.collect.ImmutableMap;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.ConfigurationProperties;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,6 +29,7 @@ import java.net.URI;
 import java.security.Principal;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -49,6 +49,9 @@ import static javax.ws.rs.core.HttpHeaders.IF_NONE_MATCH;
 import static javax.ws.rs.core.HttpHeaders.IF_UNMODIFIED_SINCE;
 import static javax.ws.rs.core.Response.Status.NOT_MODIFIED;
 import static javax.ws.rs.core.Response.Status.PRECONDITION_FAILED;
+import static org.everrest.core.impl.ProcessingPhase.MATCHED;
+import static org.everrest.core.impl.ProcessingPhase.PRE_MATCHED;
+import static org.everrest.core.impl.ProcessingPhase.SENDING_RESPONSE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -64,9 +67,10 @@ public class ContainerRequestTest {
     private URI requestUri = URI.create("http://localhost:8080/servlet/a/b/c");
     private URI baseUri = URI.create("http://localhost:8080/servlet");
     private MultivaluedMap<String, String> headers = new MultivaluedHashMap<>();
-    private InputStream        entityStream;
-    private SecurityContext    securityContext;
+    private InputStream entityStream;
+    private SecurityContext securityContext;
     private ApplicationContext applicationContext;
+    private ConfigurationProperties properties;
 
     private ContainerRequest containerRequest;
 
@@ -75,7 +79,8 @@ public class ContainerRequestTest {
         securityContext = mock(SecurityContext.class);
         applicationContext = mock(ApplicationContext.class, RETURNS_DEEP_STUBS);
         ApplicationContext.setCurrent(applicationContext);
-        containerRequest = new ContainerRequest(httpMethod, requestUri, baseUri, entityStream, headers, securityContext);
+        properties = mock(ConfigurationProperties.class);
+        containerRequest = new ContainerRequest(httpMethod, requestUri, baseUri, entityStream, headers, securityContext, properties);
     }
 
     @After
@@ -83,6 +88,7 @@ public class ContainerRequestTest {
         headers.clear();
         entityStream = null;
         securityContext = null;
+        ApplicationContext.setCurrent(null);
     }
 
     @Test
@@ -102,13 +108,33 @@ public class ContainerRequestTest {
 
     @Test
     public void setsBaseUriAndRequestUri() {
+        when(applicationContext.getProcessingPhase()).thenReturn(PRE_MATCHED);
         URI newBaseUri = URI.create("http://localhost1:8080/servlet");
         URI newRequestUri = URI.create("http://localhost:80802/servlet/a/b/c");
 
-        containerRequest.setUris(newRequestUri, newBaseUri);
+        containerRequest.setRequestUri(newBaseUri, newRequestUri);
 
         assertEquals(newBaseUri, containerRequest.getBaseUri());
         assertEquals(newRequestUri, containerRequest.getRequestUri());
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void throwsExceptionWhenSetBaseUriAndRequestUriInNonPreMatchingPhase() {
+        when(applicationContext.getProcessingPhase()).thenReturn(MATCHED);
+        containerRequest.setRequestUri(URI.create("http://localhost1:8080/servlet"), URI.create("http://localhost:80802/servlet/a/b/c"));
+    }
+
+    @Test
+    public void setsRequestUri() {
+        when(applicationContext.getProcessingPhase()).thenReturn(PRE_MATCHED);
+        containerRequest.setRequestUri(URI.create("x/y/z"));
+        assertEquals(baseUri.resolve("x/y/z"), containerRequest.getRequestUri());
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void throwsExceptionWhenSetRequestUriInNonPreMatchingPhase() {
+        when(applicationContext.getProcessingPhase()).thenReturn(MATCHED);
+        containerRequest.setRequestUri(URI.create("x/y/z"));
     }
 
     @Test
@@ -153,6 +179,7 @@ public class ContainerRequestTest {
 
     @Test
     public void resetsParsedFormDataWhenSetEntityStream() {
+        when(applicationContext.getProcessingPhase()).thenReturn(MATCHED);
         InputStream entityStream = mock(InputStream.class);
         containerRequest.setEntityStream(entityStream);
         verify(applicationContext.getAttributes()).remove("org.everrest.provider.entity.decoded.form");
@@ -404,5 +431,53 @@ public class ContainerRequestTest {
     public void getsLanguage() {
         headers.putSingle(CONTENT_LANGUAGE, "en-gb");
         assertEquals(new Locale("en", "gb"), containerRequest.getLanguage());
+    }
+
+    @Test
+    public void getsProperties() {
+        assertEquals(properties, containerRequest.getProperties());
+    }
+
+    @Test
+    public void getsProperty() {
+        when(properties.getProperty("name")).thenReturn("value");
+        assertEquals("value", containerRequest.getProperty("name"));
+    }
+
+    @Test
+    public void getsPropertyNames() {
+        Collection<String> names = newArrayList("name1", "name2");
+        when(properties.getPropertyNames()).thenReturn(names);
+        assertEquals(names, containerRequest.getPropertyNames());
+    }
+
+    @Test
+    public void setsProperty() {
+        containerRequest.setProperty("name", "value");
+        verify(properties).setProperty("name", "value");
+    }
+
+    @Test
+    public void removesProperty() {
+        containerRequest.removeProperty("name");
+        verify(properties).removeProperty("name");
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void throwsExceptionWhenSetEntityStreamInResponsePhase() {
+        when(applicationContext.getProcessingPhase()).thenReturn(SENDING_RESPONSE);
+        containerRequest.setEntityStream(mock(InputStream.class));
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void throwsExceptionWhenSetSecurityContextInResponsePhase() {
+        when(applicationContext.getProcessingPhase()).thenReturn(SENDING_RESPONSE);
+        containerRequest.setSecurityContext(mock(SecurityContext.class));
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void throwsExceptionWhenSetAbortWithResponseInResponsePhase() {
+        when(applicationContext.getProcessingPhase()).thenReturn(SENDING_RESPONSE);
+        containerRequest.abortWith(mock(Response.class));
     }
 }

@@ -10,9 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.impl.async;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.async.AsynchronousJobPool;
+import org.everrest.core.async.AsynchronousJobRejectedException;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.method.DefaultMethodInvoker;
-import org.everrest.core.impl.method.ParameterResolverFactory;
+import org.everrest.core.method.ParameterResolverFactory;
 import org.everrest.core.resource.GenericResourceMethod;
 import org.everrest.core.resource.ResourceMethodDescriptor;
 

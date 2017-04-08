@@ -10,9 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.util;
 
-import org.everrest.core.ApplicationContext;
+import com.google.common.base.Preconditions;
 import org.everrest.core.GenericContainerResponse;
+import org.everrest.core.impl.ApplicationContext;
 
+import javax.ws.rs.core.MultivaluedMap;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,10 +39,9 @@ public final class Tracer {
      */
     public static boolean isTracingEnabled() {
         ApplicationContext context = ApplicationContext.getCurrent();
-        if (context == null) {
-            throw new IllegalStateException("ApplicationContext is not initialized yet. ");
-        }
-        return Boolean.parseBoolean(context.getQueryParameters().getFirst("tracing"));
+        Preconditions.checkState(context != null, "ApplicationContext is not initialized yet. ");
+        MultivaluedMap<String, String> queryParameters = context.getQueryParameters();
+        return queryParameters != null && Boolean.parseBoolean(queryParameters.getFirst("tracing"));
     }
 
     /**
@@ -82,9 +83,6 @@ public final class Tracer {
 
     private static TraceHolder getTraceHolder() {
         ApplicationContext context = ApplicationContext.getCurrent();
-        if (context == null) {
-            throw new IllegalStateException("ApplicationContext is not initialized yet. ");
-        }
         TraceHolder t = (TraceHolder)context.getAttributes().get("tracer");
         if (t == null) {
             t = new TraceHolder();
@@ -103,7 +101,7 @@ public final class Tracer {
         void addTraceHeaders(GenericContainerResponse response) {
             int i = 1;
             for (String message : getTraceHolder().traces) {
-                response.getHttpHeaders().add(format("EverRest-Trace-%03d", i++), message);
+                response.getHeaders().add(format("EverRest-Trace-%03d", i++), message);
             }
         }
     }

@@ -10,8 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ObjectFactory;
-import org.everrest.core.ObjectModel;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.ResourceBinder;
 
 import javax.ws.rs.core.Application;
@@ -46,14 +45,9 @@ public class ApplicationPublisher {
             for (Map.Entry<String, Class<?>> e : everrest.getResourceClasses().entrySet()) {
                 Class<?> clazz = e.getValue();
                 addResource(e.getKey(), clazz);
-                classes.remove(clazz);
             }
             for (Map.Entry<String, Object> e : everrest.getResourceSingletons().entrySet()) {
                 addResource(e.getKey(), e.getValue());
-            }
-            for (ObjectFactory<? extends ObjectModel> factory : everrest.getFactories()) {
-                addFactory(factory);
-                classes.remove(factory.getObjectModel().getObjectClass());
             }
         }
         for (Class<?> clazz : classes) {
@@ -82,10 +76,5 @@ public class ApplicationPublisher {
     @SuppressWarnings({"unchecked"})
     private void addPerRequest(Class clazz) {
         componentResolver.addPerRequest(clazz);
-    }
-
-    @SuppressWarnings({"unchecked"})
-    private void addFactory(ObjectFactory factory) {
-        componentResolver.addFactory(factory);
     }
 }

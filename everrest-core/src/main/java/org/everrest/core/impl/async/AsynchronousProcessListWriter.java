@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.impl.async;
 
+import javax.annotation.Priority;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
@@ -24,6 +25,9 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
+
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 @Produces(MediaType.TEXT_PLAIN)
 public class AsynchronousProcessListWriter implements MessageBodyWriter<Iterable<AsynchronousProcess>> {

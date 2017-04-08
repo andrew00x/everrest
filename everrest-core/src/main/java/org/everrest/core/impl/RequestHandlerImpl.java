@@ -10,14 +10,10 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ApplicationContext;
-import org.everrest.core.ExtHttpHeaders;
 import org.everrest.core.GenericContainerRequest;
 import org.everrest.core.GenericContainerResponse;
-import org.everrest.core.RequestFilter;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.RequestHandler;
-import org.everrest.core.ResourceBinder;
-import org.everrest.core.ResponseFilter;
 import org.everrest.core.UnhandledException;
 import org.everrest.core.tools.ErrorPages;
 import org.everrest.core.util.Tracer;
@@ -26,14 +22,13 @@ import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.ext.ExceptionMapper;
 import java.io.IOException;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author andrew00x
@@ -45,10 +40,8 @@ public class RequestHandlerImpl implements RequestHandler {
     private final ProviderBinder providers;
 
     public RequestHandlerImpl(RequestDispatcher dispatcher, ProviderBinder providers) {
-        checkNotNull(dispatcher);
-        checkNotNull(providers);
-        this.dispatcher = dispatcher;
-        this.providers = providers;
+        this.dispatcher = requireNonNull(dispatcher);
+        this.providers = requireNonNull(providers);
     }
 
     @Override
@@ -56,19 +49,12 @@ public class RequestHandlerImpl implements RequestHandler {
         final ApplicationContext context = ApplicationContext.getCurrent();
 
         try {
-            for (RequestFilter filter : providers.getRequestFilters(context.getPath())) {
-                filter.doFilter(request);
-            }
             dispatcher.dispatch(request, response);
-            setupInternalResponseHeaders(response.getStatus(), response.getHttpHeaders());
-            for (ResponseFilter filter : providers.getResponseFilters(context.getPath())) {
-                filter.doFilter(response);
-            }
         } catch (Exception e) {
             if (e instanceof WebApplicationException) {
-                handleWebApplicationException((WebApplicationException)e, response);
+                handleWebApplicationException((WebApplicationException)e, response, context.getEnvironmentContext().get(ErrorPages.class));
             } else if (e instanceof InternalException) {
-                handleInternalException((InternalException)e, response);
+                handleInternalException((InternalException)e, response, context.getEnvironmentContext().get(ErrorPages.class));
             } else {
                 throw new UnhandledException(e);
             }
@@ -78,9 +64,8 @@ public class RequestHandlerImpl implements RequestHandler {
     }
 
     @SuppressWarnings({"unchecked"})
-    private void handleWebApplicationException(WebApplicationException webApplicationException, GenericContainerResponse response) {
+    private void handleWebApplicationException(WebApplicationException webApplicationException, GenericContainerResponse response, ErrorPages errorPages) {
         LOG.debug("WebApplicationException occurs", webApplicationException);
-        ErrorPages errorPages = (ErrorPages)EnvironmentContext.getCurrent().get(ErrorPages.class);
 
         Response errorResponse = webApplicationException.getResponse();
         int errorStatus = errorResponse.getStatus();
@@ -94,9 +79,7 @@ public class RequestHandlerImpl implements RequestHandler {
             Tracer.trace("WebApplicationException occurs, cause = (%s)", cause);
         }
 
-        if (errorResponse.hasEntity()) {
-            setupInternalResponseHeaders(errorStatus, errorResponse.getMetadata());
-        } else {
+        if (!errorResponse.hasEntity()) {
             ExceptionMapper exceptionMapper = providers.getExceptionMapper(WebApplicationException.class);
             if (exceptionMapper != null) {
                 if (Tracer.isTracingEnabled()) {
@@ -117,9 +100,8 @@ public class RequestHandlerImpl implements RequestHandler {
     }
 
     @SuppressWarnings({"unchecked"})
-    private void handleInternalException(InternalException internalException, GenericContainerResponse response) {
+    private void handleInternalException(InternalException internalException, GenericContainerResponse response, ErrorPages errorPages) {
         LOG.debug("InternalException occurs", internalException);
-        ErrorPages errorPages = (ErrorPages)EnvironmentContext.getCurrent().get(ErrorPages.class);
 
         Throwable cause = internalException.getCause();
 
@@ -153,26 +135,6 @@ public class RequestHandlerImpl implements RequestHandler {
         }
     }
 
-    @Deprecated
-    private void setupInternalResponseHeaders(int status, MultivaluedMap<String, Object> responseHeaders) {
-        if (responseHeaders.getFirst(ExtHttpHeaders.JAXRS_BODY_PROVIDED) == null) {
-            String jaxrsHeader = getJaxrsHeader(status);
-            if (jaxrsHeader != null) {
-                responseHeaders.putSingle(ExtHttpHeaders.JAXRS_BODY_PROVIDED, jaxrsHeader);
-            }
-        }
-    }
-
-    @Override
-    public ProviderBinder getProviders() {
-        return providers;
-    }
-
-    @Override
-    public ResourceBinder getResources() {
-        return dispatcher.getResources();
-    }
-
     /**
      * Create error response with specified status and body message.
      *
@@ -185,17 +147,6 @@ public class RequestHandlerImpl implements RequestHandler {
     private Response createErrorResponse(int status, String message) {
         ResponseBuilder responseBuilder = Response.status(status);
         responseBuilder.entity(message).type(MediaType.TEXT_PLAIN);
-        String jaxrsHeader = getJaxrsHeader(status);
-        if (jaxrsHeader != null) {
-            responseBuilder.header(ExtHttpHeaders.JAXRS_BODY_PROVIDED, jaxrsHeader);
-        }
         return responseBuilder.build();
-    }
-
-    private String getJaxrsHeader(int status) {
-        if (status >= 400) {
-            return "Error-Message";
-        }
-        return null;
     }
 }

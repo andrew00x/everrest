@@ -15,9 +15,8 @@ import org.everrest.core.GenericContainerResponse;
 import org.everrest.websockets.message.Pair;
 import org.everrest.websockets.message.RestOutputMessage;
 
-import javax.ws.rs.ext.MessageBodyWriter;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /**
  * Fill RestOutputMessage by result of calling REST method.
@@ -26,36 +25,21 @@ import java.io.IOException;
  */
 class EverrestResponseWriter implements ContainerResponseWriter {
     private final RestOutputMessage output;
+    private final OutputStream entityOutput;
 
-    private boolean committed;
-
-    EverrestResponseWriter(RestOutputMessage output) {
+    EverrestResponseWriter(RestOutputMessage output, OutputStream entityOutput) {
         this.output = output;
+        this.entityOutput = entityOutput;
     }
 
     @Override
     public void writeHeaders(GenericContainerResponse response) throws IOException {
-        if (committed) {
-            return;
-        }
         output.setResponseCode(response.getStatus());
-        output.setHeaders(Pair.fromMap(response.getHttpHeaders()));
-        committed = true;
+        output.setHeaders(Pair.fromMap(response.getHeaders()));
     }
 
     @Override
-    @SuppressWarnings({"unchecked"})
-    public void writeBody(GenericContainerResponse response, MessageBodyWriter entityWriter) throws IOException {
-        if (committed) {
-            return;
-        }
-        final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        final Object entity = response.getEntity();
-        if (entity != null) {
-            entityWriter.writeTo(entity, entity.getClass(), response.getEntityType(), null, response.getContentType(),
-                                 response.getHttpHeaders(), out);
-            byte[] body = out.toByteArray();
-            output.setBody(new String(body));
-        }
+    public OutputStream getOutputStream() throws IOException {
+        return entityOutput;
     }
 }

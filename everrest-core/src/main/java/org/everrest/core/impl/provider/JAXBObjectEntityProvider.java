@@ -14,6 +14,7 @@ import org.everrest.core.provider.EntityProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Priority;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
@@ -34,10 +35,12 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
 
 /**
  * @author andrew00x
  */
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 @Consumes({MediaType.APPLICATION_XML, "application/*+xml", MediaType.TEXT_XML, "text/*+xml"})
 @Produces({MediaType.APPLICATION_XML, "application/*+xml", MediaType.TEXT_XML, "text/*+xml"})
@@ -46,7 +49,7 @@ public class JAXBObjectEntityProvider implements EntityProvider<Object> {
     private static final Logger LOG = LoggerFactory.getLogger(JAXBObjectEntityProvider.class);
 
     /** @see Providers */
-    private Providers providers;
+    private final Providers providers;
 
     public JAXBObjectEntityProvider(@Context Providers providers) {
         this.providers = providers;

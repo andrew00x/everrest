@@ -12,13 +12,10 @@ package org.everrest.core.impl;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
-
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.ConstructorDescriptor;
 import org.everrest.core.DependencySupplier;
 import org.everrest.core.Parameter;
-import org.everrest.core.impl.method.ParameterResolver;
-import org.everrest.core.impl.method.ParameterResolverFactory;
+import org.everrest.core.method.ParameterResolver;
 import org.everrest.core.util.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,14 +46,12 @@ import static org.everrest.core.impl.method.ParameterHelper.RESOURCE_CONSTRUCTOR
 public class ConstructorDescriptorImpl implements ConstructorDescriptor {
     private static final Logger LOG = LoggerFactory.getLogger(ConstructorDescriptorImpl.class);
 
-    private final Constructor<?>           constructor;
-    private final ParameterResolverFactory parameterResolverFactory;
+    private final Constructor<?>  constructor;
     /** Collection of constructor's parameters. */
-    private final List<Parameter>          parameters;
+    private final List<Parameter> parameters;
 
-    public ConstructorDescriptorImpl(Constructor<?> constructor, ParameterResolverFactory parameterResolverFactory) {
+    public ConstructorDescriptorImpl(Constructor<?> constructor) {
         this.constructor = constructor;
-        this.parameterResolverFactory = parameterResolverFactory;
 
         Class<?>[] parameterTypes = constructor.getParameterTypes();
         Class<?> declaringClass = constructor.getDeclaringClass();
@@ -121,7 +116,7 @@ public class ConstructorDescriptorImpl implements ConstructorDescriptor {
         for (Parameter parameter : parameters) {
             Annotation parameterAnnotation = parameter.getAnnotation();
             if (parameterAnnotation != null) {
-                ParameterResolver<?> parameterResolver = parameterResolverFactory.createParameterResolver(parameterAnnotation);
+                ParameterResolver<?> parameterResolver = context.getParameterResolverFactory().createParameterResolver(parameterAnnotation);
                 try {
                     parameterObjects.add(parameterResolver.resolve(parameter, context));
                 } catch (Exception e) {

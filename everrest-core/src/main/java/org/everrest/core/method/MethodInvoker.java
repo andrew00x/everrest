@@ -10,7 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.method;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.resource.GenericResourceMethod;
 
 /**

@@ -81,7 +81,7 @@ public class XSLTTransformationTest extends BaseTest {
         ByteArrayContainerResponseWriter writer = new ByteArrayContainerResponseWriter();
         ContainerResponse response = launcher.service("GET", "/a", "", null, null, writer, null);
         assertEquals(200, response.getStatus());
-        assertEquals(TEXT_HTML_TYPE, response.getContentType());
+        assertEquals(TEXT_HTML_TYPE, response.getMediaType());
     }
 
     private static StreamSource loadSource(String resource) {

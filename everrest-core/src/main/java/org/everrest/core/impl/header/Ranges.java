@@ -64,12 +64,12 @@ public final class Ranges {
          * <ul>
          * <li>If {@code start} of range is -1 (range without start position)
          * {@code start} position should be set to
-         * <code>length - (-1 * start)</code>, {@code end} will be set to
-         * <code>length - 1</code></li>
+         * {@code length - (-1 * start)}, {@code end} will be set to
+         * {@code length - 1}</li>
          * <li>If {@code end} of range is -1 (range without end position)
-         * {@code end} will be set to <code>length - 1</code></li>
+         * {@code end} will be set to {@code length - 1}</li>
          * <li>If {@code end} of range is greater then {@code length}
-         * will be set to <code>length - 1</code></li>
+         * will be set to {@code length - 1}</li>
          * </ul>
          *
          * @param length

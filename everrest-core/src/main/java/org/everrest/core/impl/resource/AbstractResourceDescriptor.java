@@ -11,10 +11,8 @@
 package org.everrest.core.impl.resource;
 
 import com.google.common.base.MoreObjects;
-
 import org.everrest.core.BaseObjectModel;
 import org.everrest.core.Parameter;
-import org.everrest.core.impl.header.MediaTypeHelper;
 import org.everrest.core.impl.method.MethodParameter;
 import org.everrest.core.resource.ResourceDescriptor;
 import org.everrest.core.resource.ResourceMethodDescriptor;
@@ -22,17 +20,16 @@ import org.everrest.core.resource.SubResourceLocatorDescriptor;
 import org.everrest.core.resource.SubResourceMethodDescriptor;
 import org.everrest.core.uri.UriPattern;
 import org.everrest.core.util.ResourceMethodComparator;
+import org.everrest.core.util.UriPatternComparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.security.DenyAll;
-import javax.annotation.security.PermitAll;
-import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.Encoded;
 import javax.ws.rs.FormParam;
 import javax.ws.rs.HttpMethod;
+import javax.ws.rs.NameBinding;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
@@ -46,15 +43,23 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 
+import static com.google.common.base.Preconditions.checkState;
 import static javax.ws.rs.core.MediaType.WILDCARD_TYPE;
 import static org.everrest.core.impl.header.MediaTypeHelper.WADL_TYPE;
+import static org.everrest.core.impl.header.MediaTypeHelper.createConsumesList;
+import static org.everrest.core.impl.header.MediaTypeHelper.createProducesList;
 import static org.everrest.core.impl.method.ParameterHelper.RESOURCE_METHOD_PARAMETER_ANNOTATIONS;
+import static org.everrest.core.util.ReflectionUtils.findAnnotationsAnnotatedWith;
+import static org.everrest.core.util.ReflectionUtils.findFirstAnnotationAnnotatedWith;
 
 /**
  * @author andrew00x
@@ -62,6 +67,8 @@ import static org.everrest.core.impl.method.ParameterHelper.RESOURCE_METHOD_PARA
 public class AbstractResourceDescriptor extends BaseObjectModel implements ResourceDescriptor {
     /** Logger. */
     private static final Logger LOG = LoggerFactory.getLogger(AbstractResourceDescriptor.class);
+
+    private static Comparator<UriPattern> uriPatternComparator = new UriPatternComparator();
 
     /** PathValue. */
     private final PathValue path;
@@ -78,15 +85,32 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
     /**
      * Constructs new instance of AbstractResourceDescriptor.
      *
-     * @param resourceClass
-     *         resource class
+     * @param resourceClass resource class
      */
     public AbstractResourceDescriptor(Class<?> resourceClass) {
         this(PathValue.getPath(resourceClass.getAnnotation(Path.class)), resourceClass);
     }
 
+    /**
+     * Constructs new instance of AbstractResourceDescriptor.
+     *
+     * @param path          resource path
+     * @param resourceClass resource class
+     */
     public AbstractResourceDescriptor(String path, Class<?> resourceClass) {
-        super(resourceClass);
+        this(path, resourceClass, null);
+    }
+
+    /**
+     * Constructs new instance of AbstractResourceDescriptor.
+     *
+     * @param path                              resource path
+     * @param resourceClass                     resource class
+     * @param applicationNameBindingAnnotations name binding annotations (see {@link javax.ws.rs.NameBinding}) that are applied to {@link javax.ws.rs.core.Application} subclass.
+     *                                          If this resource deployed with different mechanism this parameter might be {@code null} or empty array.
+     */
+    public AbstractResourceDescriptor(String path, Class<?> resourceClass, Annotation[] applicationNameBindingAnnotations) {
+        super(resourceClass, applicationNameBindingAnnotations);
         if (path == null) {
             this.path = null;
             this.uriPattern = null;
@@ -95,55 +119,66 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
             this.uriPattern = new UriPattern(path);
         }
         this.resourceMethods = new MultivaluedHashMap<>();
-        this.subResourceMethods = new TreeMap<>(UriPattern.URIPATTERN_COMPARATOR);
-        this.subResourceLocators = new TreeMap<>(UriPattern.URIPATTERN_COMPARATOR);
+        this.subResourceMethods = new TreeMap<>(uriPatternComparator);
+        this.subResourceLocators = new TreeMap<>(uriPatternComparator);
         processMethods();
     }
 
     /**
      * Constructs new instance of AbstractResourceDescriptor.
      *
-     * @param resource
-     *         resource
+     * @param resource resource
      */
     public AbstractResourceDescriptor(Object resource) {
         this(resource.getClass());
     }
 
+    /**
+     * Constructs new instance of AbstractResourceDescriptor.
+     *
+     * @param path     resource path
+     * @param resource resource
+     */
     public AbstractResourceDescriptor(String path, Object resource) {
         this(path, resource.getClass());
     }
 
+    /**
+     * Constructs new instance of AbstractResourceDescriptor.
+     *
+     * @param path                              resource path
+     * @param resource                          resource
+     * @param applicationNameBindingAnnotations name binding annotations (see {@link javax.ws.rs.NameBinding}) that are applied to {@link javax.ws.rs.core.Application} subclass.
+     *                                          If this resource deployed with different mechanism this parameter might be {@code null} or empty array.
+     */
+    public AbstractResourceDescriptor(String path, Object resource, Annotation[] applicationNameBindingAnnotations) {
+        this(path, resource.getClass(), applicationNameBindingAnnotations);
+    }
 
     @Override
     public PathValue getPathValue() {
         return path;
     }
 
-
     @Override
     public Map<String, List<ResourceMethodDescriptor>> getResourceMethods() {
         return resourceMethods;
     }
-
 
     @Override
     public Map<UriPattern, SubResourceLocatorDescriptor> getSubResourceLocators() {
         return subResourceLocators;
     }
 
-
     @Override
     public Map<UriPattern, Map<String, List<SubResourceMethodDescriptor>>> getSubResourceMethods() {
         return subResourceMethods;
     }
 
-
     @Override
     public UriPattern getUriPattern() {
         return uriPattern;
     }
-
 
     @Override
     public boolean isRootResource() {
@@ -155,55 +190,64 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
      * Sub-Resource Locators.
      */
     private void processMethods() {
-        Class<?> resourceClass = getObjectClass();
-
-        for (Method method : getAllMethods(resourceClass)) {
-            Path subPath = getMethodAnnotation(method, resourceClass, Path.class, false);
-            HttpMethod httpMethod = getMethodAnnotation(method, resourceClass, HttpMethod.class, true);
+        for (Method method : getAllMethods(getObjectClass())) {
+            Path subPath = getMethodAnnotation(method, Path.class, false);
+            HttpMethod httpMethod = getMethodAnnotation(method, HttpMethod.class, true);
 
             if (subPath != null || httpMethod != null) {
                 if (Modifier.isPublic(method.getModifiers())) {
-                    List<Parameter> methodParameters = createMethodParameters(resourceClass, method);
-
-                    Annotation securityAnnotation = getSecurityAnnotation(method, resourceClass);
-                    Annotation[] additionalAnnotations = securityAnnotation != null ? new Annotation[]{securityAnnotation} : new Annotation[0];
-
+                    List<Parameter> methodParameters = createMethodParameters(method);
                     if (httpMethod != null) {
-                        Produces producesAnnotation = getMethodAnnotation(method, resourceClass, Produces.class, false);
-                        if (producesAnnotation == null) {
-                            producesAnnotation = getClassAnnotation(resourceClass, Produces.class);
-                        }
-                        List<MediaType> produces = MediaTypeHelper.createProducesList(producesAnnotation);
-
-                        Consumes consumesAnnotation = getMethodAnnotation(method, resourceClass, Consumes.class, false);
-                        if (consumesAnnotation == null) {
-                            consumesAnnotation = getClassAnnotation(resourceClass, Consumes.class);
-                        }
-                        List<MediaType> consumes = MediaTypeHelper.createConsumesList(consumesAnnotation);
-
+                        List<MediaType> produces = getProducesMediaTypes(method);
+                        List<MediaType> consumes = getConsumesMediaTypes(method);
+                        Annotation[] nameBindingAnnotations = getNameBindingAnnotations(method);
                         if (subPath == null) {
-                            addResourceMethod(method, httpMethod, methodParameters, additionalAnnotations, produces, consumes);
+                            addResourceMethod(method, httpMethod, methodParameters, nameBindingAnnotations, produces, consumes);
                         } else {
-                            addSubResourceMethod(method, subPath, httpMethod, methodParameters, additionalAnnotations, produces, consumes);
+                            addSubResourceMethod(method, subPath, httpMethod, methodParameters, nameBindingAnnotations, produces, consumes);
                         }
                     } else {
-                        addSubResourceLocator(method, subPath, methodParameters, additionalAnnotations);
+                        addSubResourceLocator(method, subPath, methodParameters);
                     }
                 } else {
                     LOG.warn("Non-public method {} in {} annotated with @Path of HTTP method annotation, it's ignored", method.getName(), clazz.getName());
                 }
             }
         }
-        if (resourceMethods.size() + subResourceMethods.size() + subResourceLocators.size() == 0) {
-            LOG.warn("Not found any resource methods, sub-resource methods or sub-resource locators in {}", resourceClass.getName());
+        if (resourceMethods.isEmpty() && subResourceMethods.isEmpty() && subResourceLocators.isEmpty()) {
+            LOG.warn("Not found any resource methods, sub-resource methods or sub-resource locators in {}", getObjectClass().getName());
         }
 
-        // End method processing. Start HEAD and OPTIONS resolving, see JAX-RS (JSR-311) specification section 3.3.5
         resolveHeadRequest();
         resolveOptionsRequest();
 
         sortResourceMethods();
         sortSubResourceMethods();
+    }
+
+    private Annotation[] getNameBindingAnnotations(Method method) {
+        Annotation[] methodBindingAnnotations = findAnnotationsAnnotatedWith(method, NameBinding.class);
+        Annotation[] classBindingAnnotations = getNameBindingAnnotations();
+        Set<Annotation> mergedBindingAnnotations = new HashSet<>();
+        Collections.addAll(mergedBindingAnnotations, methodBindingAnnotations);
+        Collections.addAll(mergedBindingAnnotations, classBindingAnnotations);
+        return mergedBindingAnnotations.toArray(new Annotation[mergedBindingAnnotations.size()]);
+    }
+
+    private List<MediaType> getConsumesMediaTypes(Method method) {
+        Consumes consumesAnnotation = getMethodAnnotation(method, Consumes.class, false);
+        if (consumesAnnotation == null) {
+            consumesAnnotation = getClassAnnotation(getObjectClass(), Consumes.class);
+        }
+        return createConsumesList(consumesAnnotation);
+    }
+
+    private List<MediaType> getProducesMediaTypes(Method method) {
+        Produces producesAnnotation = getMethodAnnotation(method, Produces.class, false);
+        if (producesAnnotation == null) {
+            producesAnnotation = getClassAnnotation(getObjectClass(), Produces.class);
+        }
+        return createProducesList(producesAnnotation);
     }
 
     private List<Method> getAllMethods(Class<?> resourceClass) {
@@ -233,26 +277,22 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
         return methods;
     }
 
-    private void addResourceMethod(Method method, HttpMethod httpMethod, List<Parameter> params, Annotation[] additional, List<MediaType> produces, List<MediaType> consumes) {
-        ResourceMethodDescriptor resourceMethod = new ResourceMethodDescriptorImpl(method, httpMethod.value(), params, this, consumes, produces, additional);
+    private void addResourceMethod(Method method, HttpMethod httpMethod, List<Parameter> params, Annotation[] nameBindingAnnotations, List<MediaType> produces, List<MediaType> consumes) {
+        ResourceMethodDescriptor resourceMethod = new ResourceMethodDescriptorImpl(method, httpMethod.value(), params, this, consumes, produces, nameBindingAnnotations);
         validateResourceMethod(resourceMethod);
-        ResourceMethodDescriptor existedResourceMethod = findMethodResourceMediaType(getResourceMethods(httpMethod.value()), resourceMethod.consumes(), resourceMethod.produces());
-        if (existedResourceMethod != null) {
-            throw new RuntimeException(String.format("Two resource method %s and %s with the same HTTP method, consumes and produces found", resourceMethod, existedResourceMethod));
-        }
+        ResourceMethodDescriptor existedResourceMethod = findResourceMethodWithMediaTypes(getResourceMethods(httpMethod.value()), resourceMethod.consumes(), resourceMethod.produces());
+        checkState(existedResourceMethod == null, "Two resource method %s and %s with the same HTTP method, consumes and produces found", resourceMethod, existedResourceMethod);
         resourceMethods.add(httpMethod.value(), resourceMethod);
     }
 
-    private void addSubResourceMethod(Method method, Path subPath, HttpMethod httpMethod, List<Parameter> params, Annotation[] additional, List<MediaType> produces, List<MediaType> consumes) {
-        SubResourceMethodDescriptor subResourceMethod = new SubResourceMethodDescriptorImpl(new PathValue(subPath.value()), method, httpMethod.value(), params, this, consumes, produces, additional);
+    private void addSubResourceMethod(Method method, Path subPath, HttpMethod httpMethod, List<Parameter> params, Annotation[] nameBindingAnnotations, List<MediaType> produces, List<MediaType> consumes) {
+        SubResourceMethodDescriptor subResourceMethod = new SubResourceMethodDescriptorImpl(new PathValue(subPath.value()), method, httpMethod.value(), params, this, consumes, produces, nameBindingAnnotations);
         validateResourceMethod(subResourceMethod);
 
         Map<String, List<SubResourceMethodDescriptor>> subResourceMethods = getSubResourceMethods(subResourceMethod.getUriPattern());
 
-        SubResourceMethodDescriptor existedSubResourceMethod = (SubResourceMethodDescriptor)findMethodResourceMediaType(subResourceMethods.get(httpMethod.value()), subResourceMethod.consumes(), subResourceMethod.produces());
-        if (existedSubResourceMethod != null) {
-            throw new RuntimeException(String.format("Two sub-resource method %s and %s with the same HTTP method, path, consumes and produces found", subResourceMethod, existedSubResourceMethod));
-        }
+        SubResourceMethodDescriptor existedSubResourceMethod = (SubResourceMethodDescriptor) findResourceMethodWithMediaTypes(subResourceMethods.get(httpMethod.value()), subResourceMethod.consumes(), subResourceMethod.produces());
+        checkState(existedSubResourceMethod == null, "Two sub-resource method %s and %s with the same HTTP method, path, consumes and produces found", subResourceMethod, existedSubResourceMethod);
         List<SubResourceMethodDescriptor> methodList = subResourceMethods.get(httpMethod.value());
         if (methodList == null) {
             methodList = new ArrayList<>();
@@ -285,12 +325,10 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
         }
     }
 
-    private void addSubResourceLocator(Method method, Path subPath, List<Parameter> params, Annotation[] additional) {
-        SubResourceLocatorDescriptor resourceLocator = new SubResourceLocatorDescriptorImpl(new PathValue(subPath.value()), method, params, this, additional);
+    private void addSubResourceLocator(Method method, Path subPath, List<Parameter> params) {
+        SubResourceLocatorDescriptor resourceLocator = new SubResourceLocatorDescriptorImpl(new PathValue(subPath.value()), method, params, this);
         validateSubResourceLocator(resourceLocator);
-        if (subResourceLocators.containsKey(resourceLocator.getUriPattern())) {
-            throw new RuntimeException(String.format("Two sub-resource locators %s and %s with the same path found", resourceLocator, subResourceLocators.get(resourceLocator.getUriPattern())));
-        }
+        checkState(!subResourceLocators.containsKey(resourceLocator.getUriPattern()), "Two sub-resource locators %s and %s with the same path found", resourceLocator, subResourceLocators.get(resourceLocator.getUriPattern()));
         subResourceLocators.put(resourceLocator.getUriPattern(), resourceLocator);
     }
 
@@ -335,24 +373,15 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
         }
     }
 
-    /**
-     * Create list of {@link Parameter} .
-     *
-     * @param resourceClass
-     *         class
-     * @param method
-     *         See {@link java.lang.reflect.Method}
-     * @return list of {@link Parameter}
-     */
-    private List<Parameter> createMethodParameters(Class<?> resourceClass, Method method) {
+    private List<Parameter> createMethodParameters(Method method) {
         Class<?>[] parameterClasses = method.getParameterTypes();
         if (parameterClasses.length > 0) {
             Type[] parameterGenTypes = method.getGenericParameterTypes();
             Annotation[][] annotations = method.getParameterAnnotations();
 
             List<Parameter> methodParameters = new ArrayList<>(parameterClasses.length);
-            boolean classEncoded = getClassAnnotation(resourceClass, Encoded.class) != null;
-            boolean methodEncoded = getMethodAnnotation(method, resourceClass, Encoded.class, false) != null;
+            boolean classEncoded = getClassAnnotation(getObjectClass(), Encoded.class) != null;
+            boolean methodEncoded = getMethodAnnotation(method, Encoded.class, false) != null;
             for (int i = 0; i < parameterClasses.length; i++) {
                 String defaultValue = null;
                 Annotation parameterAnnotation = null;
@@ -363,9 +392,8 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
                     Class<?> annotationType = annotation.annotationType();
                     if (RESOURCE_METHOD_PARAMETER_ANNOTATIONS.contains(annotationType.getName())) {
                         if (parameterAnnotation != null) {
-                            String msg = String.format(
-                                    "JAX-RS annotations on one of method parameters of resource %s, method %s are equivocality. Annotations: %s and %s can't be applied to one parameter",
-                                    toString(), method.getName(), parameterAnnotation, annotation);
+                            String msg = String.format("JAX-RS annotations on one of method parameters of resource %s, method %s are equivocality. Annotations: %s and %s can't be applied to one parameter",
+                                                       this.toString(), method.getName(), parameterAnnotation, annotation);
                             throw new RuntimeException(msg);
                         }
                         parameterAnnotation = annotation;
@@ -405,12 +433,15 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
         if (getResources != null && getResources.size() > 0) {
             List<ResourceMethodDescriptor> headResources = getResourceMethods(HttpMethod.HEAD);
             for (ResourceMethodDescriptor resourceMethod : getResources) {
-                if (findMethodResourceMediaType(headResources, resourceMethod.consumes(), resourceMethod.produces()) == null) {
+                if (findResourceMethodWithMediaTypes(headResources, resourceMethod.consumes(), resourceMethod.produces()) == null) {
                     headResources.add(
-                            new ResourceMethodDescriptorImpl(resourceMethod.getMethod(), HttpMethod.HEAD,
-                                                             resourceMethod.getMethodParameters(), this, resourceMethod.consumes(),
+                            new ResourceMethodDescriptorImpl(resourceMethod.getMethod(),
+                                                             HttpMethod.HEAD,
+                                                             resourceMethod.getMethodParameters(),
+                                                             this,
+                                                             resourceMethod.consumes(),
                                                              resourceMethod.produces(),
-                                                             resourceMethod.getAnnotations()));
+                                                             resourceMethod.getNameBindingAnnotations()));
                 }
             }
         }
@@ -424,12 +455,16 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
                     allSubResourceMethods.put(HttpMethod.HEAD, headSubResources);
                 }
                 for (SubResourceMethodDescriptor subResourceMethod : getSubResources) {
-                    if (findMethodResourceMediaType(headSubResources, subResourceMethod.consumes(), subResourceMethod.produces()) == null) {
+                    if (findResourceMethodWithMediaTypes(headSubResources, subResourceMethod.consumes(), subResourceMethod.produces()) == null) {
                         headSubResources.add(
-                                new SubResourceMethodDescriptorImpl(subResourceMethod.getPathValue(), subResourceMethod.getMethod(),
-                                                                    HttpMethod.HEAD, subResourceMethod.getMethodParameters(), this,
+                                new SubResourceMethodDescriptorImpl(subResourceMethod.getPathValue(),
+                                                                    subResourceMethod.getMethod(),
+                                                                    HttpMethod.HEAD,
+                                                                    subResourceMethod.getMethodParameters(),
+                                                                    this,
                                                                     subResourceMethod.consumes(),
-                                                                    subResourceMethod.produces(), subResourceMethod.getAnnotations()));
+                                                                    subResourceMethod.produces(),
+                                                                    subResourceMethod.getNameBindingAnnotations()));
                     }
                 }
             }
@@ -455,102 +490,79 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
     }
 
     /**
-     * Get all method with at least one annotation which has annotation <i>annotation</i>. It is useful for annotation
-     * {@link javax.ws.rs.GET}, etc. All HTTP method annotations has annotation {@link javax.ws.rs.HttpMethod}.
-     *
-     * @param <T>
-     *         annotation type
-     * @param method
-     *         method
-     * @param annotationClass
-     *         annotation class
-     * @return list of annotation
-     */
-    private <T extends Annotation> T getMetaAnnotation(Method method, Class<T> annotationClass) {
-        for (Annotation annotation : method.getAnnotations()) {
-            T result;
-            if ((result = annotation.annotationType().getAnnotation(annotationClass)) != null) {
-                return result;
-            }
-        }
-        return null;
-    }
-
-    /**
      * Tries to get JAX-RS annotation on method from the resource class's superclasses or implemented interfaces.
      *
-     * @param <T>
-     *         annotation type
-     * @param method
-     *         method for discovering
-     * @param resourceClass
-     *         class that contains discovered method
-     * @param annotationClass
-     *         annotation type what we are looking for
-     * @param metaAnnotation
-     *         false if annotation should be on method and true in method should contain annotations that
-     *         has supplied annotation
-     * @return annotation from class or its ancestor or null if nothing found
+     * @param <A>             annotation type
+     * @param method          method for discovering
+     * @param annotationClass annotation type what we are looking for
+     * @param metaAnnotation  {@code false} if annotation should be on method and {@code true} in method should contain annotations that
+     *                        has supplied annotation
+     * @return annotation from class or its ancestor or {@code null} if nothing found
      */
-    private <T extends Annotation> T getMethodAnnotation(Method method,
-                                                         Class<?> resourceClass,
-                                                         Class<T> annotationClass,
-                                                         boolean metaAnnotation) {
-        T annotation = metaAnnotation ? getMetaAnnotation(method, annotationClass) : method.getAnnotation(annotationClass);
+    @SuppressWarnings("unchecked")
+    private <A extends Annotation> A getMethodAnnotation(final Method method, Class<A> annotationClass, boolean metaAnnotation) {
+        Annotation annotation = metaAnnotation ? findFirstAnnotationAnnotatedWith(method, annotationClass) : method.getAnnotation(annotationClass);
 
         if (annotation == null) {
-            Method myMethod;
-            Class<?> myClass = resourceClass;
-            while (annotation == null && myClass != null && myClass != Object.class) {
-                for (Class<?> anInterface : myClass.getInterfaces()) {
-                    try {
-                        myMethod = anInterface.getDeclaredMethod(method.getName(), method.getParameterTypes());
-                        T newAnnotation = metaAnnotation ? getMetaAnnotation(myMethod, annotationClass) : myMethod.getAnnotation(annotationClass);
+            Method aMethod;
+            Class<?> aClass = getObjectClass();
+            while (annotation == null && aClass != Object.class) {
+                for (Class<?> anInterface : aClass.getInterfaces()) {
+                    aMethod = getMethodIfPossible(anInterface, method.getName(), method.getParameterTypes());
+                    if (aMethod != null) {
+                        Annotation newAnnotation = metaAnnotation ? findFirstAnnotationAnnotatedWith(aMethod, annotationClass) : aMethod.getAnnotation(annotationClass);
                         if (annotation == null) {
                             annotation = newAnnotation;
                         } else {
-                            throw new RuntimeException(String.format("Conflicts of JAX-RS annotations on method %s of resource %s. " +
-                                                                     "Method is declared in more than one interface and different interfaces contains JAX-RS annotations.",
-                                                                     myMethod.getName(), resourceClass.getName()));
+                            throw new RuntimeException(String.format("Conflicts of JAX-RS annotations on method %s of resource %s. Method is declared in more than one interface and different interfaces contains JAX-RS annotations.",
+                                    aMethod.getName(), getObjectClass().getName()));
                         }
-                    } catch (NoSuchMethodException ignored) {
                     }
                 }
                 if (annotation == null) {
-                    myClass = myClass.getSuperclass();
-                    if (myClass != null && myClass != Object.class) {
-                        try {
-                            myMethod = myClass.getDeclaredMethod(method.getName(), method.getParameterTypes());
-                            annotation = metaAnnotation ? getMetaAnnotation(myMethod, annotationClass) : myMethod.getAnnotation(annotationClass);
-                        } catch (NoSuchMethodException ignored) {
+                    aClass = aClass.getSuperclass();
+                    if (aClass != Object.class) {
+                        aMethod = getMethodIfPossible(aClass, method.getName(), method.getParameterTypes());
+                        if (aMethod != null) {
+                            annotation = metaAnnotation ? findFirstAnnotationAnnotatedWith(aMethod, annotationClass) : aMethod.getAnnotation(annotationClass);
                         }
                     }
                 }
             }
         }
 
-        return annotation;
+        if (annotation == null || !metaAnnotation) {
+            return (A) annotation;
+        }
+        return annotation.annotationType().getAnnotation(annotationClass);
     }
 
-    /** Tries to get JAX-RS annotation on class, superclasses or implemented interfaces. */
-    private <T extends Annotation> T getClassAnnotation(Class<?> resourceClass, Class<T> annotationClass) {
-        T annotation = resourceClass.getAnnotation(annotationClass);
+    private Method getMethodIfPossible(Class<?> methodOwner, String methodName, Class<?>[] methodParameters) {
+        Method aMethod = null;
+        try {
+            aMethod = methodOwner.getDeclaredMethod(methodName, methodParameters);
+        } catch (NoSuchMethodException ignored) {
+        }
+        return aMethod;
+    }
+
+    private <A extends Annotation> A getClassAnnotation(Class<?> resourceClass, Class<A> annotationClass) {
+        A annotation = resourceClass.getAnnotation(annotationClass);
         if (annotation == null) {
-            Class<?> myClass = resourceClass;
-            while (annotation == null && myClass != null && myClass != Object.class) {
-                for (Class<?> anInterface : myClass.getInterfaces()) {
-                    T newAnnotation = anInterface.getAnnotation(annotationClass);
+            Class<?> aClass = resourceClass;
+            while (annotation == null && aClass != Object.class) {
+                for (Class<?> anInterface : aClass.getInterfaces()) {
+                    A newAnnotation = anInterface.getAnnotation(annotationClass);
                     if (annotation == null) {
                         annotation = newAnnotation;
                     } else {
-                        throw new RuntimeException(String.format("Conflict of JAX-RS annotation on class %s. " +
-                                                                 "Class implements more that one interface and few interfaces have JAX-RS annotations.", resourceClass.getName()));
+                        throw new RuntimeException(String.format("Conflict of JAX-RS annotation on class %s. Class implements more that one interface and few interfaces have JAX-RS annotations.", resourceClass.getName()));
                     }
                 }
                 if (annotation == null) {
-                    myClass = myClass.getSuperclass();
-                    if (myClass != null && myClass != Object.class) {
-                        annotation = myClass.getAnnotation(annotationClass);
+                    aClass = aClass.getSuperclass();
+                    if (aClass != Object.class) {
+                        annotation = aClass.getAnnotation(annotationClass);
                     }
                 }
             }
@@ -558,119 +570,31 @@ public class AbstractResourceDescriptor extends BaseObjectModel implements Resou
         return annotation;
     }
 
-    /**
-     * Check is collection of {@link org.everrest.core.resource.ResourceMethodDescriptor} already contains ResourceMethodDescriptor with
-     * the same media types.
-     *
-     * @param resourceMethods
-     *         {@link java.util.Set} of {@link org.everrest.core.resource.ResourceMethodDescriptor}
-     * @param consumes
-     *         resource method consumed media type
-     * @param produces
-     *         resource method produced media type
-     * @return ResourceMethodDescriptor or null if nothing found
-     */
-    private <T extends ResourceMethodDescriptor> ResourceMethodDescriptor findMethodResourceMediaType(List<T> resourceMethods,
-                                                                                                      List<MediaType> consumes,
-                                                                                                      List<MediaType> produces) {
-        if (resourceMethods == null || resourceMethods.isEmpty()) {
-            return null;
-        }
+    private <RM extends ResourceMethodDescriptor> ResourceMethodDescriptor findResourceMethodWithMediaTypes(List<RM> resourceMethods,
+                                                                                                            List<MediaType> consumes,
+                                                                                                            List<MediaType> produces) {
         ResourceMethodDescriptor matched = null;
-        for (Iterator<T> iterator = resourceMethods.iterator(); matched == null && iterator.hasNext(); ) {
-            T method = iterator.next();
-
-            if (method.consumes().size() != consumes.size() || method.produces().size() != produces.size()) {
-                continue;
-            }
-
-            if (method.consumes().containsAll(consumes) && method.produces().containsAll(produces)) {
-                matched = method;
+        if (resourceMethods != null && !resourceMethods.isEmpty()) {
+            for (Iterator<RM> iterator = resourceMethods.iterator(); matched == null && iterator.hasNext(); ) {
+                RM method = iterator.next();
+                if (method.consumes().size() == consumes.size()
+                        && method.produces().size() == produces.size()
+                        && method.consumes().containsAll(consumes)
+                        && method.produces().containsAll(produces)) {
+                    matched = method;
+                }
             }
         }
         return matched;
     }
 
-    /**
-     * Get security annotation (DenyAll, RolesAllowed, PermitAll) from <code>method</code> or class
-     * <code>clazz</class> which contains method.
-     * Supper class or implemented interfaces will be also checked. Annotation
-     * on method has the advantage on annotation on class or interface.
-     *
-     * @param method
-     *         method to be checked for security annotation
-     * @param clazz
-     *         class which contains <code>method</code>
-     * @return one of security annotation or <code>null</code> is no such annotation found
-     * @see javax.annotation.security.DenyAll
-     * @see javax.annotation.security.RolesAllowed
-     * @see javax.annotation.security.PermitAll
-     */
-    @SuppressWarnings("unchecked")
-    private <T extends Annotation> T getSecurityAnnotation(Method method, Class<?> clazz) {
-        Class<T>[] securityAnnotationClassesClasses = new Class[]{DenyAll.class, RolesAllowed.class, PermitAll.class};
-        T annotation = getAnnotation(method, securityAnnotationClassesClasses);
-        if (annotation == null) {
-            annotation = getAnnotation(clazz, securityAnnotationClassesClasses);
-            if (annotation == null) {
-                Method myMethod;
-                Class<?> myClass = clazz;
-                while (annotation == null && myClass != null && myClass != Object.class) {
-                    Class<?>[] interfaces = myClass.getInterfaces();
-                    for (int i = 0; annotation == null && i < interfaces.length; i++) {
-                        try {
-                            myMethod = interfaces[i].getDeclaredMethod(method.getName(), method.getParameterTypes());
-                            annotation = getAnnotation(myMethod, securityAnnotationClassesClasses);
-                        } catch (NoSuchMethodException ignored) {
-                        }
-                        if (annotation == null) {
-                            annotation = getAnnotation(interfaces[i], securityAnnotationClassesClasses);
-                        }
-                    }
-                    if (annotation == null) {
-                        myClass = myClass.getSuperclass();
-                        if (myClass != null && myClass != Object.class) {
-                            try {
-                                myMethod = myClass.getDeclaredMethod(method.getName(), method.getParameterTypes());
-                                annotation = getAnnotation(myMethod, securityAnnotationClassesClasses);
-                            } catch (NoSuchMethodException ignored) {
-                            }
-                            if (annotation == null) {
-                                annotation = getAnnotation(myClass, securityAnnotationClassesClasses);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return annotation;
-    }
-
-    private <T extends Annotation> T getAnnotation(Class<?> clazz, Class<T>[] annotationClasses) {
-        T annotation = null;
-        for (int i = 0; annotation == null && i < annotationClasses.length; i++) {
-            annotation = clazz.getAnnotation(annotationClasses[i]);
-        }
-        return annotation;
-    }
-
-    private <T extends Annotation> T getAnnotation(Method method, Class<T>[] annotationClasses) {
-        T annotation = null;
-        for (int i = 0; annotation == null && i < annotationClasses.length; i++) {
-            annotation = method.getAnnotation(annotationClasses[i]);
-        }
-        return annotation;
-    }
-
-
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(getClass())
-                          .add("path", path)
+                          .add("path", getPathValue())
                           .add("isRootResource", isRootResource())
-                          .add("class", clazz)
+                          .add("class", getObjectClass())
                           .omitNullValues()
                           .toString();
     }
-
 }

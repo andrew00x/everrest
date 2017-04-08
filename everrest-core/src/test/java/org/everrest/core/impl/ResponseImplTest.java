@@ -10,21 +10,36 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-
+import com.google.common.io.CharStreams;
+import org.everrest.core.ConfigurationProperties;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.impl.uri.LinkBuilderImpl;
 import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.mockito.stubbing.Answer;
 
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.core.EntityTag;
+import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.Link;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.NewCookie;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.ext.MessageBodyReader;
 import javax.ws.rs.ext.RuntimeDelegate;
 import javax.ws.rs.ext.RuntimeDelegate.HeaderDelegate;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -47,12 +62,17 @@ import static javax.ws.rs.core.HttpHeaders.LOCATION;
 import static javax.ws.rs.core.HttpHeaders.SET_COOKIE;
 import static javax.ws.rs.core.Response.Status.Family.OTHER;
 import static javax.ws.rs.core.Response.Status.OK;
+import static org.everrest.core.util.ParameterizedTypeImpl.newParameterizedType;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.AdditionalMatchers.aryEq;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isA;
+import static org.mockito.Matchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -60,6 +80,16 @@ import static org.mockito.Mockito.when;
  * @author andrew00x
  */
 public class ResponseImplTest {
+    @Rule public ExpectedException thrown = ExpectedException.none();
+
+    private ProviderBinder providers;
+    private ConfigurationProperties properties;
+
+    @Before
+    public void setUp() throws Exception {
+        providers = mock(DefaultProviderBinder.class);
+        properties = mock(ConfigurationProperties.class);
+    }
 
     @After
     public void tearDown() throws Exception {
@@ -131,9 +161,18 @@ public class ResponseImplTest {
     }
 
     @Test
+    public void getsContentLengthMinusOneIfParsingOfHeaderFails() throws Exception {
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        headers.putSingle(CONTENT_LENGTH, "one");
+        ResponseImpl response = new ResponseImpl(200, "foo", null, headers);
+
+        assertEquals(-1, response.getLength());
+    }
+
+    @Test
     public void getsAllowedMethods() throws Exception {
         MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
-        headers.put(ALLOW, newArrayList("get,Put", null, "POST"));
+        headers.put(ALLOW, newArrayList("get", "Put", "POST"));
         ResponseImpl response = new ResponseImpl(200, "foo", null, headers);
 
         assertEquals(newHashSet("GET", "PUT", "POST"), response.getAllowedMethods());
@@ -394,7 +433,6 @@ public class ResponseImplTest {
         ResponseImpl response = new ResponseImpl(200, "foo", null, null);
 
         assertEquals(OK, response.getStatusInfo());
-
     }
 
     @Test
@@ -405,5 +443,213 @@ public class ResponseImplTest {
         assertEquals(0, statusInfo.getStatusCode());
         assertEquals(OTHER, statusInfo.getFamily());
         assertEquals("Unknown", statusInfo.getReasonPhrase());
+    }
+
+    @Test
+    public void readsEntityOfType() throws Exception {
+        String entity = "to be or not to be";
+        InputStream in = new ByteArrayInputStream(entity.getBytes());
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        headers.putSingle(CONTENT_TYPE, "text/plain");
+        MessageBodyReader<String> reader = mockMessageBodyReaderFor(String.class, String.class, null, new MediaType("text", "plain"));
+        when(reader.readFrom(eq(String.class), eq(String.class), isNull(Annotation[].class), eq(new MediaType("text", "plain")), isA(MultivaluedMap.class), isA(InputStream.class)))
+                .thenAnswer(readEntityAsString());
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+
+        String readEntity = response.readEntity(String.class);
+
+        assertEquals(entity, readEntity);
+        assertEquals(entity, response.getEntity());
+    }
+
+    @Test
+    public void returnsInputStreamWhenResponseEntityRepresentedByInputStream() throws Exception {
+        InputStream entity = new ByteArrayInputStream("to be or not to be".getBytes());
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        MessageBodyReader<InputStream> reader = mockMessageBodyReaderFor(InputStream.class, InputStream.class, null, null);
+        when(reader.readFrom(eq(InputStream.class), eq(InputStream.class), isNull(Annotation[].class), isNull(MediaType.class), isA(MultivaluedMap.class), isA(InputStream.class)))
+                .thenReturn(entity);
+        ResponseImpl response = new ResponseImpl(200, entity, null, headers, providers, properties);
+
+        InputStream readEntity = response.readEntity(InputStream.class);
+
+        assertEquals(entity, readEntity);
+    }
+
+    @Test
+    public void readsEntityOfTypeWhenStreamWasBuffered() throws Exception {
+        String entity = "to be or not to be";
+        InputStream in = new ByteArrayInputStream(entity.getBytes());
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        headers.putSingle(CONTENT_TYPE, "text/plain");
+        MessageBodyReader<String> reader = mockMessageBodyReaderFor(String.class, String.class, null, new MediaType("text", "plain"));
+
+        when(reader.readFrom(eq(String.class), eq(String.class), isNull(Annotation[].class), eq(new MediaType("text", "plain")), isA(MultivaluedMap.class), isA(InputStream.class)))
+                .thenAnswer(readEntityAsString());
+
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+        assertTrue(response.bufferEntity());
+
+        String readEntity = response.readEntity(String.class);
+        String nextReadEntity = response.readEntity(String.class);
+        String nextNextReadEntity = response.readEntity(String.class);
+
+        assertEquals(entity, readEntity);
+        assertEquals(entity, nextReadEntity);
+        assertEquals(entity, nextNextReadEntity);
+        assertEquals(entity, response.getEntity());
+    }
+
+    @Test
+    public void throwsExceptionWhenReadEntityFromEmptyStream() throws Exception {
+        InputStream in = new ByteArrayInputStream(new byte[0]);
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+
+        thrown.expect(IllegalStateException.class);
+        response.readEntity(String.class);
+    }
+
+    @Test
+    public void throwsExceptionWhenMessageBodyReaderIsNotAvailable() throws Exception {
+        InputStream in = new ByteArrayInputStream(new byte[1]);
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+
+        thrown.expect(ProcessingException.class);
+        thrown.expectMessage("Unsupported entity type String");
+        response.readEntity(String.class);
+    }
+
+    @Test
+    public void readsEntityOfGenericType() throws Exception {
+        InputStream in = new ByteArrayInputStream("to be or not to be".getBytes());
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        headers.putSingle(CONTENT_TYPE, "text/plain");
+        MessageBodyReader<List> reader = mockMessageBodyReaderFor(List.class, newParameterizedType(List.class, String.class), null, new MediaType("text", "plain"));
+        when(reader.readFrom(eq(List.class), eq(newParameterizedType(List.class, String.class)), isNull(Annotation[].class), eq(new MediaType("text", "plain")), isA(MultivaluedMap.class), isA(InputStream.class)))
+                .thenAnswer(readEntityAsListOfStrings());
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+
+        List<String> readEntity = response.readEntity(new GenericType<List<String>>(){});
+
+        assertEquals(newArrayList("to", "be", "or", "not", "to", "be"), readEntity);
+        assertEquals(newArrayList("to", "be", "or", "not", "to", "be"), response.getEntity());
+    }
+
+    @Test
+    public void readsEntityOfTypeWithAnnotations() throws Exception {
+        String entity = "to be or not to be";
+        Annotation[] annotations = new Annotation[]{new A8Impl()};
+        InputStream in = new ByteArrayInputStream(entity.getBytes());
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        headers.putSingle(CONTENT_TYPE, "text/plain");
+        MessageBodyReader<String> reader = mockMessageBodyReaderFor(String.class, String.class, annotations, new MediaType("text", "plain"));
+        when(reader.readFrom(eq(String.class), eq(String.class), aryEq(annotations), eq(new MediaType("text", "plain")), isA(MultivaluedMap.class), isA(InputStream.class)))
+                .thenAnswer(readEntityAsString());
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+
+        String readEntity = response.readEntity(String.class, annotations);
+
+        assertEquals(entity, readEntity);
+        assertEquals(entity, response.getEntity());
+    }
+
+    @Test
+    public void readsEntityOfGenericTypeWithAnnotations() throws Exception {
+        Annotation[] annotations = new Annotation[]{new A8Impl()};
+        InputStream in = new ByteArrayInputStream("to be or not to be".getBytes());
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        headers.putSingle(CONTENT_TYPE, "text/plain");
+        MessageBodyReader<List> reader = mockMessageBodyReaderFor(List.class, newParameterizedType(List.class, String.class), annotations, new MediaType("text", "plain"));
+        when(reader.readFrom(eq(List.class), eq(newParameterizedType(List.class, String.class)), aryEq(annotations), eq(new MediaType("text", "plain")), isA(MultivaluedMap.class), isA(InputStream.class)))
+                .thenAnswer(readEntityAsListOfStrings());
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+
+        List<String> readEntity = response.readEntity(new GenericType<List<String>>(){}, annotations);
+
+        assertEquals(newArrayList("to", "be", "or", "not", "to", "be"), readEntity);
+        assertEquals(newArrayList("to", "be", "or", "not", "to", "be"), response.getEntity());
+    }
+
+    @Test
+    public void buffersEntity() throws Exception {
+        String entity = "to be or not to be";
+        InputStream in = new ByteArrayInputStream(entity.getBytes());
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+
+        assertTrue(response.bufferEntity());
+        assertTrue(response.isEntityStreamBuffered());
+        assertNotSame(in, response.getEntityStream());
+        assertEquals(entity, CharStreams.toString(new InputStreamReader(response.getEntityStream())));
+    }
+
+    @Test
+    public void doesNotBufferEmptyStream() throws Exception {
+        InputStream in = new ByteArrayInputStream(new byte[0]);
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        ResponseImpl response = new ResponseImpl(200, in, null, headers, providers, properties);
+
+        assertFalse(response.bufferEntity());
+        assertFalse(response.isEntityStreamBuffered());
+        assertSame(in, response.getEntityStream());
+    }
+
+    @Test
+    public void checksEntityPresenceWhenEntityIsSet() {
+        String entity = "to be or not to be";
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        ResponseImpl response = new ResponseImpl(200, entity, null, headers);
+        assertTrue(response.hasEntity());
+    }
+
+    @Test
+    public void closes() {
+        MultivaluedMap<String, Object> headers = new MultivaluedHashMap<>();
+        ResponseImpl response = new ResponseImpl(200, null, null, headers);
+        response.close();
+        assertTrue(response.isClosed());
+    }
+
+    private static Answer<String> readEntityAsString() {
+        return invocation -> {
+            InputStream in = (InputStream) invocation.getArguments()[5];
+            return CharStreams.toString(new InputStreamReader(in));
+        };
+    }
+
+    private static Answer<List<String>> readEntityAsListOfStrings() {
+        return invocation -> {
+            InputStream in = (InputStream) invocation.getArguments()[5];
+            return Splitter.on(' ').splitToList(CharStreams.toString(new InputStreamReader(in)));
+        };
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> MessageBodyReader<T> mockMessageBodyReaderFor(Class<T> type, Type genericType, Annotation[] annotations, MediaType mediaType) {
+        MessageBodyReader<T> reader = mock(MessageBodyReader.class);
+        when(providers.getMessageBodyReader(eq(type), eq(genericType), aryEq(annotations), eq(mediaType))).thenReturn(reader);
+        return reader;
+    }
+
+    @interface A8 {
+    }
+
+    static class A8Impl implements A8 {
+        @Override
+        public Class<? extends Annotation> annotationType() {
+            return A8.class;
+        }
+
+        @Override
+        public int hashCode() {
+            return 0;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof A8;
+        }
     }
 }

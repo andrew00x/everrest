@@ -10,13 +10,12 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import javax.ws.rs.FormParam;
 import javax.ws.rs.core.MultivaluedHashMap;
@@ -38,9 +37,6 @@ import static org.mockito.Mockito.when;
 
 @SuppressWarnings("unchecked")
 public class FormParameterResolverTest {
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
     private MultivaluedMap<String, String> decodedForm;
     private MultivaluedMap<String, String> encodedForm;
 
@@ -100,18 +96,6 @@ public class FormParameterResolverTest {
         assertThatMessageBodyWriterWasCalled();
     }
 
-    @Test
-    public void throwsIllegalStateExceptionWhenFormMessageBodyReaderIsNotAvailable() throws Exception {
-        Class<MultivaluedMap> type = MultivaluedMap.class;
-        ParameterizedType genericType = newParameterizedType(type, String.class, String.class);
-        when(applicationContext.getProviders().getMessageBodyReader(eq(type), eq(genericType), any(Annotation[].class), eq(APPLICATION_FORM_URLENCODED_TYPE)))
-                .thenReturn(null);
-
-        thrown.expect(IllegalStateException.class);
-
-        formParameterResolver.resolve(parameter, applicationContext);
-    }
-
     private ApplicationContext mockApplicationContext() {
         ApplicationContext applicationContext = mock(ApplicationContext.class, RETURNS_DEEP_STUBS);
 
@@ -135,12 +119,14 @@ public class FormParameterResolverTest {
     private Parameter mockParameter() {
         Parameter parameter = mock(Parameter.class);
         when(parameter.getParameterClass()).thenReturn((Class)String.class);
+        when(parameter.getGenericType()).thenReturn((Class)String.class);
+        when(parameter.getAnnotations()).thenReturn(new Annotation[0]);
         return parameter;
     }
 
     private TypeProducerFactory mockTypeProducerFactory() {
         TypeProducerFactory typeProducerFactory = mock(TypeProducerFactory.class);
-        when(typeProducerFactory.createTypeProducer(eq(String.class), any())).thenReturn(typeProducer);
+        when(typeProducerFactory.createTypeProducer(String.class, String.class, new Annotation[0])).thenReturn(typeProducer);
         return typeProducerFactory;
     }
 

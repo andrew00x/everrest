@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static javax.xml.xpath.XPathConstants.NODESET;
 import static javax.xml.xpath.XPathConstants.STRING;
 import static org.junit.Assert.assertEquals;
@@ -137,17 +138,7 @@ public class WadlProcessorTest {
         assertEquals("5", str);
         NodeList nl = (NodeList)xp.evaluate("//wadl:resource[@path='a/{b}']/wadl:method[@id='m1']/@name", doc, NODESET);
         assertEquals(1, nl.getLength());
-        boolean get = false;
-        for (int i = 0; i < nl.getLength(); i++) {
-            String t = nl.item(i).getTextContent();
-            if (t.equals("GET")) {
-                get = true;
-            }
-        }
-        assertTrue(get);
-        for (int i = 0; i < nl.getLength(); i++) {
-            System.out.println(">>>>> resource method : " + nl.item(i).getTextContent());
-        }
+        assertEquals("GET", nl.item(0).getTextContent());
         str = (String)xp.evaluate("//wadl:resource[@path='a/{b}']/wadl:method[@id='m2']/@name", doc, STRING);
         assertEquals("POST", str);
         str = (String)xp.evaluate("//wadl:resource[@path='a/{b}']/wadl:method[@id='m2']/wadl:request/wadl:param[@style='header']/@name", doc, STRING);
@@ -160,17 +151,7 @@ public class WadlProcessorTest {
         // discover sub-resource methods
         nl = (NodeList)xp.evaluate("//wadl:resource[@path='a/{b}']/wadl:resource[@path='{c}/{d}']/wadl:method/@name", doc, NODESET);
         assertEquals(1, nl.getLength());
-        boolean subget = false;
-        for (int i = 0; i < nl.getLength(); i++) {
-            String t = nl.item(i).getTextContent();
-            if (t.equals("GET")) {
-                subget = true;
-            }
-        }
-        assertTrue(subget);
-        for (int i = 0; i < nl.getLength(); i++) {
-            System.out.println(">>>>> sub-resource method : " + nl.item(i).getTextContent());
-        }
+        assertEquals("GET", nl.item(0).getTextContent());
         str = (String)xp.evaluate("count(//wadl:resource[@path='a/{b}']/wadl:resource[@path='{c}/{d}/{e}']/wadl:method)", doc, STRING);
         assertEquals("1", str);
 
@@ -188,21 +169,8 @@ public class WadlProcessorTest {
         // discover sub-resource locators
         nl = (NodeList)xp.evaluate("//wadl:resource[@path='a/{b}']/wadl:resource[@path='sub/{x}']/wadl:method/@name", doc, NODESET);
         assertEquals(2, nl.getLength());
-        boolean childget = false;
-        boolean childopt = false;
-        for (int i = 0; i < nl.getLength(); i++) {
-            String t = nl.item(i).getTextContent();
-            if (t.equals("GET")) {
-                childget = true;
-            }
-            if (t.equals("OPTIONS")) {
-                childopt = true;
-            }
-        }
-        assertTrue(childget && childopt);
-        for (int i = 0; i < nl.getLength(); i++) {
-            System.out.println(">>>>> child resource method : " + nl.item(i).getTextContent());
-        }
+        List<String> methods = getTextContents(nl);
+        assertTrue(methods.containsAll(newArrayList("GET", "OPTIONS")));
 
         str = (String)xp.evaluate("count(//wadl:resource[@path='a/{b}']/wadl:resource[@path='sub/{x}']/wadl:method)", doc, STRING);
         assertEquals("2", str);
@@ -210,6 +178,14 @@ public class WadlProcessorTest {
         assertEquals("template", str);
         str = (String)xp.evaluate("//wadl:resource[@path='a/{b}']/wadl:resource[@path='sub/{x}']/wadl:method[@id='m0']/wadl:response/wadl:representation/@mediaType", doc, STRING);
         assertEquals("text/plain", str);
+    }
+
+    private List<String> getTextContents(NodeList nodes) {
+        List<String> texts = new ArrayList<>();
+        for (int i = 0, length = nodes.getLength(); i < length; i++) {
+            texts.add(nodes.item(i).getTextContent());
+        }
+        return texts;
     }
 
     @SuppressWarnings({"unchecked"})

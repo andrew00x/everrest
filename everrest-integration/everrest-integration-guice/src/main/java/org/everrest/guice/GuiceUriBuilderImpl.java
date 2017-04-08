@@ -14,6 +14,8 @@ import org.everrest.core.impl.uri.UriBuilderImpl;
 
 import javax.ws.rs.core.UriBuilder;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 /**
  * Allows to use service proxy classes which are created by guice for interceptors.
  * @author Max Shaposhnik
@@ -29,10 +31,7 @@ public class GuiceUriBuilderImpl extends UriBuilderImpl {
     @SuppressWarnings({"unchecked"})
     @Override
     public UriBuilder path(Class resource) {
-        if (resource == null) {
-            throw new IllegalArgumentException("Resource is null");
-        }
-
+        checkArgument(resource != null, "Null resource class isn't allowed");
         if  (resource.getName().contains(PROXY_MARKER)) {
             return super.path(resource.getSuperclass());
         }
@@ -41,9 +40,8 @@ public class GuiceUriBuilderImpl extends UriBuilderImpl {
 
     @Override
     public UriBuilder path(Class resource, String method) {
-        if (resource == null) {
-            throw new IllegalArgumentException("Resource is null");
-        }
+        checkArgument(resource != null, "Null resource class isn't allowed");
+        checkArgument(method != null, "Null method name isn't allowed");
 
         if (resource.getName().contains(PROXY_MARKER)) {
             return super.path(resource.getSuperclass(), method);

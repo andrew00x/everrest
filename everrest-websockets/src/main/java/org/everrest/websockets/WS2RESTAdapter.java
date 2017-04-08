@@ -10,8 +10,7 @@
  *******************************************************************************/
 package org.everrest.websockets;
 
-import static javax.websocket.CloseReason.CloseCodes.VIOLATED_POLICY;
-
+import org.everrest.core.SimpleConfigurationProperties;
 import org.everrest.core.impl.ContainerRequest;
 import org.everrest.core.impl.ContainerResponse;
 import org.everrest.core.impl.EnvironmentContext;
@@ -32,6 +31,7 @@ import javax.websocket.EncodeException;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.SecurityContext;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
@@ -40,6 +40,9 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+
+import static javax.websocket.CloseReason.CloseCodes.VIOLATED_POLICY;
+import static org.everrest.websockets.message.RestOutputMessage.anOutput;
 
 /**
  * @author andrew00x
@@ -77,7 +80,7 @@ class WS2RESTAdapter implements WSMessageReceiver {
         }
         if ("subscribe-channel".equalsIgnoreCase(messageType) || "unsubscribe-channel".equalsIgnoreCase(messageType)) {
             final String channel = parseSubscriptionMessage(input);
-            final RestOutputMessage response = newOutputMessage(request);
+            final RestOutputMessage response = anOutput(request).build();
             // Send the same body as in request.
             response.setBody(request.getBody());
             response.setHeaders(new Pair[]{Pair.of("x-everrest-websocket-message-type", messageType)});
@@ -98,12 +101,12 @@ class WS2RESTAdapter implements WSMessageReceiver {
         }
         final String uuid = request.getUuid();
         if (uuid == null) {
+            LOG.warn("Invalid input message. Message UUID is required.");
             throw new IllegalArgumentException("Invalid input message. Message UUID is required. ");
         }
         if (inProgress.contains(uuid)) {
             // Re-send accept response if client tries send message with the same id
-            final RestOutputMessage response = newOutputMessage(request);
-            response.setResponseCode(202);
+            final RestOutputMessage response = anOutput(request).responseCode(202).build();
             doSendMessage(response);
         }
         executor.execute(new Runnable() {
@@ -128,17 +131,20 @@ class WS2RESTAdapter implements WSMessageReceiver {
                         // Always know content length since we use ByteArrayInputStream.
                         headers.putSingle("content-length", Integer.toString(data.available()));
                     }
-                    final RestOutputMessage response = newOutputMessage(request);
                     final ContainerRequest internalRequest = new ContainerRequest(request.getMethod(),
                                                                                   requestUri,
                                                                                   BASE_URI,
                                                                                   data,
                                                                                   new InputHeadersMap(headers),
-                                                                                  securityContext);
-                    final ContainerResponse internalResponse = new ContainerResponse(new EverrestResponseWriter(response));
+                                                                                  securityContext,
+                                                                                  new SimpleConfigurationProperties());
+                    final RestOutputMessage response = anOutput(request).build();
+                    final ByteArrayOutputStream entityOutput = new ByteArrayOutputStream();
+                    final ContainerResponse internalResponse = new ContainerResponse(new EverrestResponseWriter(response, entityOutput));
                     final EnvironmentContext env = new EnvironmentContext();
                     env.put(WSConnection.class, connection);
                     everrestProcessor.process(internalRequest, internalResponse, env);
+                    response.setBody(entityOutput.toString());
                     doSendMessage(response);
                 } catch (Exception e) {
                     LOG.error(e.getMessage(), e);
@@ -148,17 +154,17 @@ class WS2RESTAdapter implements WSMessageReceiver {
             }
         });
         // send accept response
-        final RestOutputMessage restOutputMessage = newOutputMessage(request);
-        restOutputMessage.setResponseCode(202);
+        final RestOutputMessage restOutputMessage = anOutput(request).responseCode(202).build();
         inProgress.add(uuid);
         doSendMessage(restOutputMessage);
     }
 
     private void sendPongMessage(RestInputMessage pingMessage) {
-        final RestOutputMessage pong = newOutputMessage(pingMessage);
-        pong.setBody(pingMessage.getBody());
-        pong.setResponseCode(200);
-        pong.setHeaders(new Pair[]{Pair.of("x-everrest-websocket-message-type", "pong")});
+        final RestOutputMessage pong = anOutput(pingMessage)
+                .body(pingMessage.getBody())
+                .responseCode(200)
+                .addHeader(Pair.of("x-everrest-websocket-message-type", "pong"))
+                .build();
         doSendMessage(pong);
     }
 
@@ -172,14 +178,6 @@ class WS2RESTAdapter implements WSMessageReceiver {
                 LOG.error(e.getMessage(), e);
             }
         }
-    }
-
-    private RestOutputMessage newOutputMessage(RestInputMessage input) {
-        final RestOutputMessage output = new RestOutputMessage();
-        output.setUuid(input.getUuid());
-        output.setMethod(input.getMethod());
-        output.setPath(input.getPath());
-        return output;
     }
 
     private void doSendMessage(OutputMessage output) {

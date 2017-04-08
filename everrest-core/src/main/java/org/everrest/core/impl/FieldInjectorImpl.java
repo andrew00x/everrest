@@ -11,11 +11,8 @@
 package org.everrest.core.impl;
 
 import com.google.common.base.MoreObjects;
-
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.DependencySupplier;
 import org.everrest.core.FieldInjector;
-import org.everrest.core.impl.method.ParameterResolverFactory;
 
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.Encoded;
@@ -24,6 +21,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.ext.Provider;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -54,7 +52,6 @@ public class FieldInjectorImpl implements FieldInjector {
     /** See {@link javax.ws.rs.Encoded}. */
     private final boolean encoded;
     private final Field  field;
-    private final ParameterResolverFactory parameterResolverFactory;
     /**
      * Setter for field. If setter available it will be used for field initialization. Otherwise field initialized directly.
      */
@@ -64,9 +61,8 @@ public class FieldInjectorImpl implements FieldInjector {
      * @param field
      *         java.lang.reflect.Field
      */
-    public FieldInjectorImpl(Field field, ParameterResolverFactory parameterResolverFactory) {
+    public FieldInjectorImpl(Field field) {
         this.field = field;
-        this.parameterResolverFactory = parameterResolverFactory;
         this.annotations = field.getDeclaredAnnotations();
 
         final Class<?> declaringClass = field.getDeclaringClass();
@@ -84,7 +80,7 @@ public class FieldInjectorImpl implements FieldInjector {
             Class<?> annotationType = annotations[i].annotationType();
             if (allowedAnnotation.contains(annotationType.getName())) {
                 if (annotation != null) {
-                    throw new RuntimeException(
+                    throw new IllegalStateException(
                             String.format("JAX-RS annotations on one of fields %s are equivocality. Annotations: %s and %s can't be applied to one field. ",
                                           field, annotation, annotations[i]));
                 }
@@ -151,7 +147,7 @@ public class FieldInjectorImpl implements FieldInjector {
         try {
             Object value = null;
             if (annotation != null) {
-                value = parameterResolverFactory.createParameterResolver(annotation).resolve(this, context);
+                value = context.getParameterResolverFactory().createParameterResolver(annotation).resolve(this, context);
             } else {
                 DependencySupplier dependencies = context.getDependencySupplier();
                 if (dependencies != null) {
@@ -170,14 +166,16 @@ public class FieldInjectorImpl implements FieldInjector {
                 }
             }
         } catch (Exception e) {
+            ResponseBuilder errorResponse = Response.status(INTERNAL_SERVER_ERROR);
             if (annotation != null) {
                 Class<?> annotationType = annotation.annotationType();
                 if (annotationType == PathParam.class || annotationType == QueryParam.class || annotationType == MatrixParam.class) {
-                    throw new WebApplicationException(e, Response.status(NOT_FOUND).build());
+                    errorResponse.status(NOT_FOUND);
+                } else {
+                    errorResponse.status(BAD_REQUEST);
                 }
-                throw new WebApplicationException(e, Response.status(BAD_REQUEST).build());
             }
-            throw new WebApplicationException(e, Response.status(INTERNAL_SERVER_ERROR).build());
+            throw new WebApplicationException(e, errorResponse.build());
         }
     }
 

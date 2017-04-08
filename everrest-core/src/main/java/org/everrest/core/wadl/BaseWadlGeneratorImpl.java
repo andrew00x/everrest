@@ -162,9 +162,8 @@ public class BaseWadlGeneratorImpl implements WadlGenerator {
             wadlParameter.setStyle(ParamStyle.HEADER);
         }
 
-        if (wadlParameter == null)
-        // ignore this method parameter
-        {
+        if (wadlParameter == null) {
+            // ignore this method parameter
             return null;
         }
 

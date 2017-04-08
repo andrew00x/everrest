@@ -10,8 +10,8 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.DependencySupplier;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.RequestHandler;
 import org.everrest.core.ResourceBinder;
 import org.everrest.core.impl.method.MethodInvokerDecorator;
@@ -31,11 +31,12 @@ import java.net.URI;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Sets.newHashSet;
-import static org.everrest.core.ExtHttpHeaders.X_HTTP_METHOD_OVERRIDE;
+import static javax.ws.rs.RuntimeType.SERVER;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -48,26 +49,32 @@ public class EverrestProcessorTest {
     private URI                            baseUri        = URI.create("http://localhost:8080/servlet");
     private MultivaluedMap<String, String> requestHeaders = new MultivaluedHashMap<>();
 
-    private RequestHandler        requestHandler;
-    private DependencySupplier    dependencySupplier;
-    private EverrestConfiguration configuration;
-
-    private EverrestProcessor everrestProcessor;
+    private RequestHandler     requestHandler;
+    private DependencySupplier dependencySupplier;
+    private EverrestProcessor  everrestProcessor;
 
     @Before
     public void setUp() throws Exception {
         requestHandler = mock(RequestHandler.class);
+        ProviderBinder providers = mock(ProviderBinder.class);
+        when(providers.getRuntimeType()).thenReturn(SERVER);
+        ResourceBinder resources = mock(ResourceBinder.class);
         dependencySupplier = mock(DependencySupplier.class);
-        configuration = mock(EverrestConfiguration.class, RETURNS_DEEP_STUBS);
-        when(configuration.getProperty("org.everrest.core.impl.method.MethodInvokerDecoratorFactory"))
-                .thenReturn(TestMethodInvokerDecoratorFactory.class.getName());
+        ServerConfigurationProperties configuration = mock(ServerConfigurationProperties.class, RETURNS_DEEP_STUBS);
+        when(configuration.getStringProperty("org.everrest.core.impl.method.MethodInvokerDecoratorFactory", null))
+                .thenReturn(FakeMethodInvokerDecoratorFactory.class.getName());
 
-        everrestProcessor = new EverrestProcessor(configuration, dependencySupplier, requestHandler, null);
+        everrestProcessor = new EverrestProcessor(configuration, dependencySupplier, requestHandler, resources, providers, null);
     }
 
     @After
     public void tearDown() throws Exception {
         requestHeaders.clear();
+    }
+
+    @Test
+    public void initializeMethodInvokerDecoratorFactoryIfConfigured() {
+        assertTrue(everrestProcessor.getMethodInvokerDecoratorFactory() instanceof FakeMethodInvokerDecoratorFactory);
     }
 
     @Test
@@ -109,6 +116,7 @@ public class EverrestProcessorTest {
         assertSame(containerRequest, applicationContextThatRequestHandlerCalledWith[0].getContainerRequest());
         assertSame(containerResponse, applicationContextThatRequestHandlerCalledWith[0].getContainerResponse());
         assertSame(dependencySupplier, applicationContextThatRequestHandlerCalledWith[0].getDependencySupplier());
+        assertSame(environmentContext, applicationContextThatRequestHandlerCalledWith[0].getEnvironmentContext());
     }
 
     @Test
@@ -124,53 +132,10 @@ public class EverrestProcessorTest {
     }
 
     @Test
-    public void setsUpEnvironmentContextBeforeCallToRequestHandler() throws Exception {
-        ContainerRequest containerRequest = mockContainerRequest();
-        ContainerResponse containerResponse = mockContainerResponse();
-        EnvironmentContext environmentContext = mock(EnvironmentContext.class);
-
-        EnvironmentContext[] environmentContextThatRequestHandlerCalledWith = new EnvironmentContext[1];
-        doAnswer(invocation -> {
-            environmentContextThatRequestHandlerCalledWith[0] = EnvironmentContext.getCurrent();
-            return null;
-        }).when(requestHandler).handleRequest(containerRequest, containerResponse);
-
-        everrestProcessor.process(containerRequest, containerResponse, environmentContext);
-        assertNotNull(environmentContextThatRequestHandlerCalledWith[0]);
-        assertSame(environmentContext, environmentContextThatRequestHandlerCalledWith[0]);
-    }
-
-    @Test
-    public void resetsEnvironmentContextAlterCallToRequestHandler() throws Exception {
-        ContainerRequest containerRequest = mockContainerRequest();
-        ContainerResponse containerResponse = mockContainerResponse();
-        EnvironmentContext environmentContext = mock(EnvironmentContext.class);
-
-        everrestProcessor.process(containerRequest, containerResponse, environmentContext);
-
-        EnvironmentContext environmentContextAfterCall = EnvironmentContext.getCurrent();
-        assertNull(environmentContextAfterCall);
-    }
-
-    @Test
-    public void overridesHttpMethodWhenXHTTPMethodOverrideHeaderIsSet() throws Exception {
-        when(configuration.isHttpMethodOverride()).thenReturn(true);
-        requestHeaders.putSingle(X_HTTP_METHOD_OVERRIDE, "PUT");
-        ContainerRequest containerRequest = mockContainerRequest();
-        ContainerResponse containerResponse = mockContainerResponse();
-        EnvironmentContext environmentContext = mock(EnvironmentContext.class);
-
-        everrestProcessor.process(containerRequest, containerResponse, environmentContext);
-
-        verify(containerRequest).setMethod("PUT");
-    }
-
-    @Test
     public void callsPreDestroyMethodsForSingletonComponentsOnStop() throws Exception {
         EchoResource resource = new EchoResource();
         Application application = mock(Application.class);
         when(application.getSingletons()).thenReturn(newHashSet(resource));
-        when(requestHandler.getResources()).thenReturn(mock(ResourceBinder.class));
 
         everrestProcessor.addApplication(application);
         everrestProcessor.stop();
@@ -189,11 +154,11 @@ public class EverrestProcessorTest {
 
     private ContainerResponse mockContainerResponse() {
         ContainerResponse containerResponse = mock(ContainerResponse.class);
-        when(containerResponse.getHttpHeaders()).thenReturn(new MultivaluedHashMap<>());
+        when(containerResponse.getHeaders()).thenReturn(new MultivaluedHashMap<>());
         return containerResponse;
     }
 
-    public static class TestMethodInvokerDecoratorFactory implements MethodInvokerDecoratorFactory {
+    public static class FakeMethodInvokerDecoratorFactory implements MethodInvokerDecoratorFactory {
         @Override
         public MethodInvokerDecorator makeDecorator(MethodInvoker invoker) {
             return mock(MethodInvokerDecorator.class);

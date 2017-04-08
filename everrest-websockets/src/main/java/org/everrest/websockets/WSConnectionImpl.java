@@ -11,6 +11,7 @@
 package org.everrest.websockets;
 
 import org.everrest.core.impl.EverrestProcessor;
+import org.everrest.core.impl.ServerConfigurationProperties;
 import org.everrest.websockets.message.MessageSender;
 import org.everrest.websockets.message.OutputMessage;
 import org.everrest.websockets.message.RestInputMessage;
@@ -36,10 +37,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static javax.websocket.CloseReason.CloseCodes.getCloseCode;
+import static org.everrest.websockets.ServerContainerInitializeListener.EVERREST_CONFIG_ATTRIBUTE;
 import static org.everrest.websockets.ServerContainerInitializeListener.EVERREST_PROCESSOR_ATTRIBUTE;
 import static org.everrest.websockets.ServerContainerInitializeListener.EXECUTOR_ATTRIBUTE;
 import static org.everrest.websockets.ServerContainerInitializeListener.HTTP_SESSION_ATTRIBUTE;
-import static org.everrest.websockets.ServerContainerInitializeListener.SECURITY_CONTEXT;
+import static org.everrest.websockets.ServerContainerInitializeListener.SECURITY_CONTEXT_ATTRIBUTE;
+import static org.everrest.websockets.message.MessageSender.MAX_NUMBER_OF_MESSAGES_IN_QUEUE;
 
 public class WSConnectionImpl extends Endpoint implements WSConnection {
     private static final AtomicLong counter = new AtomicLong(1);
@@ -63,12 +66,14 @@ public class WSConnectionImpl extends Endpoint implements WSConnection {
     @Override
     public void onOpen(Session session, EndpointConfig config) {
         wsSession = session;
-        messageSender = new MessageSender(session);
         final Map<String, Object> userProperties = config.getUserProperties();
+        final int maxNumberOfMessagesInQueue = ((ServerConfigurationProperties)userProperties.get(EVERREST_CONFIG_ATTRIBUTE))
+                .getIntegerProperty(MAX_NUMBER_OF_MESSAGES_IN_QUEUE, 1_000_000);
+        messageSender = new MessageSender(session, maxNumberOfMessagesInQueue);
         httpSession = (HttpSession)userProperties.get(HTTP_SESSION_ATTRIBUTE);
         final WS2RESTAdapter restAdapter =
                 new WS2RESTAdapter(this,
-                                   (SecurityContext)userProperties.get(SECURITY_CONTEXT),
+                                   (SecurityContext)userProperties.get(SECURITY_CONTEXT_ATTRIBUTE),
                                    (EverrestProcessor)userProperties.get(EVERREST_PROCESSOR_ATTRIBUTE),
                                    (Executor)userProperties.get(EXECUTOR_ATTRIBUTE));
         messageReceivers.add(restAdapter);

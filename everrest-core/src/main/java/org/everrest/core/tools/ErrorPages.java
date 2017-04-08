@@ -40,8 +40,8 @@ import static javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING;
 public class ErrorPages {
     private static final Logger LOG = LoggerFactory.getLogger(ErrorPages.class);
 
-    private final        Map<Integer, String> errorCodes     = new HashMap<>();
-    private final        Map<String, String>  exceptionTypes = new HashMap<>();
+    private final Map<Integer, String> errorCodes     = new HashMap<>();
+    private final Map<String, String>  exceptionTypes = new HashMap<>();
 
     public ErrorPages(ServletContext servletContext) {
         loadErrorPages(servletContext, errorCodes, exceptionTypes);

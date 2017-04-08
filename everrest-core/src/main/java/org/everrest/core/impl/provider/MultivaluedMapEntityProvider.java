@@ -10,10 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.impl.provider;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.MultivaluedMapImpl;
 import org.everrest.core.provider.EntityProvider;
 
+import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.Produces;
@@ -33,12 +34,15 @@ import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
+
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
 @Produces({MediaType.APPLICATION_FORM_URLENCODED})
 public class MultivaluedMapEntityProvider implements EntityProvider<MultivaluedMap<String, String>> {
 
-    private HttpServletRequest httpRequest;
+    private final HttpServletRequest httpRequest;
 
     public MultivaluedMapEntityProvider(@Context HttpServletRequest httpRequest) {
         this.httpRequest = httpRequest;

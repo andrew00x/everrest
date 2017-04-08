@@ -12,27 +12,32 @@ package org.everrest.core.impl;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.ConfigurationProperties;
 import org.everrest.core.GenericContainerRequest;
 import org.everrest.core.impl.header.AcceptLanguage;
 import org.everrest.core.impl.header.AcceptMediaType;
 import org.everrest.core.impl.header.HeaderHelper;
 import org.everrest.core.impl.header.MediaTypeHelper;
 
+import javax.ws.rs.ProcessingException;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.EntityTag;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.SecurityContext;
+import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.core.Variant;
 import javax.ws.rs.ext.RuntimeDelegate;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.security.Principal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +45,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
@@ -48,6 +54,8 @@ import static java.util.stream.Collectors.toList;
 import static javax.ws.rs.HttpMethod.GET;
 import static javax.ws.rs.HttpMethod.HEAD;
 import static javax.ws.rs.core.Response.Status.PRECONDITION_FAILED;
+import static org.everrest.core.impl.ProcessingPhase.PRE_MATCHED;
+import static org.everrest.core.impl.ProcessingPhase.SENDING_RESPONSE;
 import static org.everrest.core.impl.header.HeaderHelper.convertToString;
 import static org.everrest.core.impl.header.HeaderHelper.createAcceptMediaTypeList;
 import static org.everrest.core.impl.header.HeaderHelper.createAcceptedLanguageList;
@@ -56,68 +64,55 @@ import static org.everrest.core.impl.header.HeaderHelper.createAcceptedLanguageL
  * @author andrew00x
  */
 public class ContainerRequest implements GenericContainerRequest {
+    private final ConfigurationProperties properties;
     /** HTTP method. */
     private String method;
-
     /** HTTP request message body as stream. */
     private InputStream entityStream;
-
     /** HTTP headers. */
     private MultivaluedMap<String, String> httpHeaders;
-
     /** Parsed HTTP cookies. */
     private Map<String, Cookie> cookies;
-
     /** Source strings of HTTP cookies. */
     private List<String> cookieHeaders;
-
     /** HTTP header Content-Type. */
     private MediaType contentType;
-
     /** HTTP header Content-Language. */
     private Locale contentLanguage;
-
     /** List of accepted media type, HTTP header Accept. List is sorted by quality value factor. */
     private List<AcceptMediaType> acceptableMediaTypes;
-
     /** List of accepted language, HTTP header Accept-Language. List is sorted by quality value factor. */
     private List<Locale> acceptLanguages;
-
     /** Full request URI, includes query string and fragment. */
     private URI requestUri;
-
     /** Base URI, e.g. servlet path. */
     private URI baseUri;
-
     /** Security context. */
     private SecurityContext securityContext;
-
-    private VariantsHandler variantsHandler = new VariantsHandler();
+    private VariantsHandler variantsHandler;
+    private Response abortResponse;
 
     /**
      * Constructs new instance of ContainerRequest.
      *
-     * @param method
-     *         HTTP method
-     * @param requestUri
-     *         full request URI
-     * @param baseUri
-     *         base request URI
-     * @param entityStream
-     *         request message body as stream
-     * @param httpHeaders
-     *         HTTP headers
-     * @param securityContext
-     *         SecurityContext
+     * @param method          HTTP method
+     * @param requestUri      full request URI
+     * @param baseUri         base request URI
+     * @param entityStream    request message body as stream
+     * @param httpHeaders     HTTP headers
+     * @param securityContext SecurityContext
      */
     public ContainerRequest(String method, URI requestUri, URI baseUri, InputStream entityStream,
-                            MultivaluedMap<String, String> httpHeaders, SecurityContext securityContext) {
+                            MultivaluedMap<String, String> httpHeaders, SecurityContext securityContext,
+                            ConfigurationProperties properties) {
         this.method = method;
         this.requestUri = requestUri;
         this.baseUri = baseUri;
         this.entityStream = entityStream;
         this.httpHeaders = httpHeaders;
         this.securityContext = securityContext;
+        this.properties = properties;
+        variantsHandler = new VariantsHandler();
     }
 
     @Override
@@ -172,17 +167,21 @@ public class ContainerRequest implements GenericContainerRequest {
 
     @Override
     public void setEntityStream(InputStream entityStream) {
+        ApplicationContext context = ApplicationContext.getCurrent();
+        checkState(ApplicationContext.getCurrent().getProcessingPhase().order() < SENDING_RESPONSE.order(),
+                "Unable set request entity stream in response phase");
+
+        if (this.entityStream != null) {
+            try {
+                this.entityStream.close();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
         this.entityStream = entityStream;
 
-        ApplicationContext context = ApplicationContext.getCurrent();
         context.getAttributes().remove("org.everrest.provider.entity.decoded.form");
         context.getAttributes().remove("org.everrest.provider.entity.encoded.form");
-    }
-
-    @Override
-    public void setUris(URI requestUri, URI baseUri) {
-        this.requestUri = requestUri;
-        this.baseUri = baseUri;
     }
 
     @Override
@@ -491,6 +490,100 @@ public class ContainerRequest implements GenericContainerRequest {
 
     void setVariantsHandler(VariantsHandler variantsHandler) {
         this.variantsHandler = variantsHandler;
+    }
+
+    @Override
+    public ConfigurationProperties getProperties() {
+        return properties;
+    }
+
+    @Override
+    public Object getProperty(String name) {
+        return properties.getProperty(name);
+    }
+
+    @Override
+    public Collection<String> getPropertyNames() {
+        return properties.getPropertyNames();
+    }
+
+    @Override
+    public void setProperty(String name, Object value) {
+        properties.setProperty(name, value);
+    }
+
+    @Override
+    public void removeProperty(String name) {
+        properties.removeProperty(name);
+    }
+
+    @Override
+    public UriInfo getUriInfo() {
+        return ApplicationContext.getCurrent();
+    }
+
+    @Override
+    public void setRequestUri(URI requestUri) {
+        checkState(ApplicationContext.getCurrent().getProcessingPhase() == PRE_MATCHED, "Unable update request URI after matching");
+        this.requestUri = baseUri.resolve(requestUri);
+    }
+
+    @Override
+    public void setRequestUri(URI baseUri, URI requestUri) {
+        checkState(ApplicationContext.getCurrent().getProcessingPhase() == PRE_MATCHED, "Unable update request URI after matching");
+        this.baseUri = baseUri;
+        this.requestUri = requestUri;
+    }
+
+    @Override
+    public Request getRequest() {
+        return this;
+    }
+
+    @Override
+    public MultivaluedMap<String, String> getHeaders() {
+        return getRequestHeaders();
+    }
+
+    @Override
+    public boolean hasEntity() {
+        if (entityStream != null) {
+            try {
+                if (entityStream.markSupported()) {
+                    entityStream.mark(1);
+                    boolean hasEntity = entityStream.read() != -1;
+                    entityStream.reset();
+                    return hasEntity;
+                }
+                return entityStream.available() > 0;
+            } catch (IOException e) {
+                throw new ProcessingException(e.getMessage(), e);
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public SecurityContext getSecurityContext() {
+        return securityContext;
+    }
+
+    @Override
+    public void setSecurityContext(SecurityContext securityContext) {
+        checkState(ApplicationContext.getCurrent().getProcessingPhase().order() < SENDING_RESPONSE.order(),
+                "Unable update security context in response phase");
+        this.securityContext = securityContext;
+    }
+
+    @Override
+    public void abortWith(Response response) {
+        checkState(ApplicationContext.getCurrent().getProcessingPhase().order() < SENDING_RESPONSE.order(),
+                "Unable set abort response in response phase");
+        abortResponse = response;
+    }
+
+    public Response getAbortResponse() {
+        return abortResponse;
     }
 
     @Override

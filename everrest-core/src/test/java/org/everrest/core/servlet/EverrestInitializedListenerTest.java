@@ -10,19 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.servlet;
 
-import org.everrest.core.DependencySupplier;
-import org.everrest.core.ResourceBinder;
-import org.everrest.core.impl.ApplicationProviderBinder;
-import org.everrest.core.impl.EverrestApplication;
-import org.everrest.core.impl.EverrestConfiguration;
-import org.everrest.core.impl.EverrestProcessor;
-import org.everrest.core.impl.ProviderBinder;
 import org.junit.Before;
 import org.junit.Test;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
-import javax.ws.rs.core.Application;
 
 import static java.util.Collections.emptyEnumeration;
 import static org.mockito.Matchers.eq;
@@ -41,54 +33,45 @@ public class EverrestInitializedListenerTest {
     }
 
     @Test
-    public void setsEverrestComponentsAsServletContextAttributeWhenServletContextInitialized() {
+    public void setsEverrestServletContextInitializerAsServletContextAttributeWhenServletContextInitialized() {
         EverrestInitializedListener everrestInitializedListener = new EverrestInitializedListener();
         ServletContextEvent servletContextEvent = new ServletContextEvent(servletContext);
         everrestInitializedListener.contextInitialized(servletContextEvent);
 
-        verify(servletContext).setAttribute(eq(EverrestProcessor.class.getName()), isA(EverrestProcessor.class));
-        verify(servletContext).setAttribute(eq(EverrestConfiguration.class.getName()), isA(EverrestConfiguration.class));
-        verify(servletContext).setAttribute(eq(Application.class.getName()), isA(EverrestApplication.class));
-        verify(servletContext).setAttribute(eq(ApplicationProviderBinder.class.getName()), isA(ProviderBinder.class));
-        verify(servletContext).setAttribute(eq(ResourceBinder.class.getName()), isA(ResourceBinder.class));
-        verify(servletContext).setAttribute(eq(DependencySupplier.class.getName()), isA(DependencySupplier.class));
+        verify(servletContext).setAttribute(eq(EverrestServletContextInitializer.class.getName()), isA(EverrestServletContextInitializer.class));
     }
 
     @Test
-    public void removesEverrestComponentsFromServletContextAttributeWhenServletContextDestroyed() {
-        EverrestInitializedListener everrestInitializedListener = new EverrestInitializedListener();
-        ServletContextEvent servletContextEvent = new ServletContextEvent(servletContext);
-        everrestInitializedListener.contextDestroyed(servletContextEvent);
-
-        verify(servletContext).removeAttribute(eq(EverrestProcessor.class.getName()));
-        verify(servletContext).removeAttribute(eq(EverrestConfiguration.class.getName()));
-        verify(servletContext).removeAttribute(eq(Application.class.getName()));
-        verify(servletContext).removeAttribute(eq(ApplicationProviderBinder.class.getName()));
-        verify(servletContext).removeAttribute(eq(ResourceBinder.class.getName()));
-        verify(servletContext).removeAttribute(eq(DependencySupplier.class.getName()));
-    }
-
-    @Test
-    public void startsEverrestProcessorWhenServletContextInitialized() throws Exception {
-        EverrestProcessor everrestProcessor = mock(EverrestProcessor.class);
+    public void removesEverrestServletContextInitializerFromServletContextAttributeWhenServletContextDestroyed() {
         EverrestServletContextInitializer initializer = mock(EverrestServletContextInitializer.class);
-        when(initializer.createEverrestProcessor()).thenReturn(everrestProcessor);
-
-        EverrestInitializedListener everrestInitializedListener = new EverrestInitializedListener();
-        everrestInitializedListener.initializeEverrestComponents(initializer, servletContext);
-
-        verify(everrestProcessor).start();
-    }
-
-    @Test
-    public void stopsEverrestProcessorWhenServletContextDestroyed() throws Exception {
-        EverrestProcessor everrestProcessor = mock(EverrestProcessor.class);
-        when(servletContext.getAttribute(EverrestProcessor.class.getName())).thenReturn(everrestProcessor);
+        when(servletContext.getAttribute(EverrestServletContextInitializer.class.getName())).thenReturn(initializer);
 
         EverrestInitializedListener everrestInitializedListener = new EverrestInitializedListener();
         ServletContextEvent servletContextEvent = new ServletContextEvent(servletContext);
         everrestInitializedListener.contextDestroyed(servletContextEvent);
 
-        verify(everrestProcessor).stop();
+        verify(servletContext).removeAttribute(EverrestServletContextInitializer.class.getName());
+    }
+
+    @Test
+    public void createsEverrestProcessorWhenServletContextInitialized() throws Exception {
+        EverrestServletContextInitializer initializer = mock(EverrestServletContextInitializer.class);
+
+        EverrestInitializedListener everrestInitializedListener = new EverrestInitializedListener();
+        everrestInitializedListener.initializeEverrestComponents(initializer);
+
+        verify(initializer).createEverrestProcessor();
+    }
+
+    @Test
+    public void destroysEverrestProcessorWhenServletContextDestroyed() throws Exception {
+        EverrestServletContextInitializer initializer = mock(EverrestServletContextInitializer.class);
+        when(servletContext.getAttribute(EverrestServletContextInitializer.class.getName())).thenReturn(initializer);
+
+        EverrestInitializedListener everrestInitializedListener = new EverrestInitializedListener();
+        ServletContextEvent servletContextEvent = new ServletContextEvent(servletContext);
+        everrestInitializedListener.contextDestroyed(servletContextEvent);
+
+        verify(initializer).destroyEverrestProcessor();
     }
 }

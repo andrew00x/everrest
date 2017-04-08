@@ -11,14 +11,13 @@
 package org.everrest.core.impl.provider.json;
 
 public class JsonHandler {
+    private final JsonValueFactory jsonValueFactory;
+    /** Stack of JsonValues. */
+    private final JsonStack<JsonValue> jsonStack;
 
     private String key;
     /** JsonValue which is currently in process. */
     private JsonValue current;
-    private JsonValueFactory jsonValueFactory;
-
-    /** Stack of JsonValues. */
-    private JsonStack<JsonValue> jsonStack;
 
     public JsonHandler() {
         this.jsonStack = new JsonStack<>();

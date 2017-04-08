@@ -10,9 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
+import org.everrest.core.method.ParameterResolver;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 
 import javax.ws.rs.HeaderParam;
 
@@ -24,20 +26,15 @@ public class HeaderParameterResolver implements ParameterResolver<HeaderParam> {
     private final HeaderParam         headerParam;
     private final TypeProducerFactory typeProducerFactory;
 
-    /**
-     * @param headerParam
-     *         HeaderParam
-     */
     HeaderParameterResolver(HeaderParam headerParam, TypeProducerFactory typeProducerFactory) {
         this.headerParam = headerParam;
         this.typeProducerFactory = typeProducerFactory;
     }
 
-
     @Override
     public Object resolve(Parameter parameter, ApplicationContext context) throws Exception {
         String param = this.headerParam.value();
-        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType());
+        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType(), parameter.getAnnotations());
         return typeProducer.createValue(param, context.getHttpHeaders().getRequestHeaders(), parameter.getDefaultValue());
     }
 }

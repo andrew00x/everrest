@@ -10,6 +10,8 @@
  *******************************************************************************/
 package org.everrest.core.impl.async;
 
+import org.everrest.core.async.AsynchronousJob;
+import org.everrest.core.async.AsynchronousJobListener;
 import org.everrest.core.impl.InternalException;
 import org.everrest.core.resource.ResourceMethodDescriptor;
 import org.slf4j.Logger;
@@ -28,10 +30,10 @@ class AsynchronousFuture extends FutureTask<Object> implements AsynchronousJob {
     private static final Logger LOG = LoggerFactory.getLogger(AsynchronousFuture.class);
 
     private final List<AsynchronousJobListener> jobListeners;
-    private final Long                     jobId;
-    private final long                     expirationDate;
-    private final ResourceMethodDescriptor method;
-    private final Map<String, Object>      context;
+    private final Long                          jobId;
+    private final long                          expirationDate;
+    private final ResourceMethodDescriptor      method;
+    private final Map<String, Object>           context;
 
     private String jobUri;
 

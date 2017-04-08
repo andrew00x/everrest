@@ -111,7 +111,7 @@ public class AsynchronousRequestTest extends BaseTest {
         ByteArrayContainerResponseWriter writer = new ByteArrayContainerResponseWriter();
         ContainerResponse response = getAsynchronousResponse(jobUrl, writer);
         assertEquals(200, response.getStatus());
-        assertEquals("asynchronous response", new String(writer.getBody()));
+        assertEquals("asynchronous response", writer.getBodyAsString());
 
         // Try one more time. Job must be removed from pool so expected result is 404.
         response = launcher.service("GET", jobUrl, "", null, null, null);
@@ -133,7 +133,7 @@ public class AsynchronousRequestTest extends BaseTest {
         ContainerResponse response = launcher.service("GET", "/async", "", headers, null, null, null);
 
         assertEquals(200, response.getStatus());
-        assertEquals("application/json", response.getContentType().toString());
+        assertEquals("application/json", response.getMediaType().toString());
 
         Collection<AsynchronousProcess> processes = (Collection<AsynchronousProcess>)response.getEntity();
 
@@ -159,7 +159,7 @@ public class AsynchronousRequestTest extends BaseTest {
         ContainerResponse response = launcher.service("GET", "/async", "", headers, null, null, null);
 
         assertEquals(200, response.getStatus());
-        assertEquals("text/plain", response.getContentType().toString());
+        assertEquals("text/plain", response.getMediaType().toString());
 
         Collection<AsynchronousProcess> processes = (Collection<AsynchronousProcess>)response.getEntity();
 
@@ -202,7 +202,7 @@ public class AsynchronousRequestTest extends BaseTest {
         ContainerResponse response = getAsynchronousResponse(jobUrl, null);
 
         assertEquals(200, response.getStatus());
-        assertEquals("application/json", response.getContentType().toString());
+        assertEquals("application/json", response.getMediaType().toString());
 
         assertEquals("to be or not to be", ((Msg)response.getEntity()).getMessage());
     }
@@ -221,8 +221,8 @@ public class AsynchronousRequestTest extends BaseTest {
         ContainerResponse response = getAsynchronousResponse(jobUrl, writer);
 
         assertEquals(500, response.getStatus());
-        assertEquals("text/plain", response.getContentType().toString());
-        assertEquals("test process exceptions in asynchronous mode", new String(writer.getBody()));
+        assertEquals("text/plain", response.getMediaType().toString());
+        assertEquals("test process exceptions in asynchronous mode", writer.getBodyAsString());
     }
 
     @Test
@@ -238,7 +238,7 @@ public class AsynchronousRequestTest extends BaseTest {
         ContainerResponse response = getAsynchronousResponse(jobUrl, null);
 
         assertEquals(200, response.getStatus());
-        assertEquals("application/json", response.getContentType().toString());
+        assertEquals("application/json", response.getMediaType().toString());
 
         assertEquals("to be or not to be", ((Msg)response.getEntity()).getMessage());
     }

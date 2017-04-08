@@ -25,8 +25,8 @@ import java.io.OutputStream;
  * @author Dmytro Katayev
  */
 public class XSLTStreamingOutput implements StreamingOutput {
-    private Source    source;
-    private Templates templates;
+    private final Source    source;
+    private final Templates templates;
 
     /**
      * XSLTStreamingOutput constructor.

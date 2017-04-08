@@ -10,19 +10,21 @@
  *******************************************************************************/
 package org.everrest.groovy;
 
-import org.everrest.core.impl.ApplicationProviderBinder;
-import org.everrest.core.impl.EverrestConfiguration;
+import org.everrest.core.ProviderBinder;
+import org.everrest.core.impl.DefaultProviderBinder;
 import org.everrest.core.impl.EverrestProcessor;
-import org.everrest.core.impl.ProviderBinder;
 import org.everrest.core.impl.RequestDispatcher;
 import org.everrest.core.impl.RequestHandlerImpl;
 import org.everrest.core.impl.ResourceBinderImpl;
+import org.everrest.core.impl.ServerConfigurationProperties;
 import org.everrest.core.impl.async.AsynchronousJobService;
-import org.everrest.core.impl.async.AsynchronousProcessListWriter;
+import org.everrest.core.impl.provider.ServerEmbeddedProvidersFeature;
 import org.everrest.core.tools.DependencySupplierImpl;
 import org.everrest.core.tools.ResourceLauncher;
 import org.junit.After;
 import org.junit.Before;
+
+import static javax.ws.rs.RuntimeType.SERVER;
 
 /**
  * @author andrew00x
@@ -38,14 +40,11 @@ public abstract class BaseTest {
     @Before
     public void setUp() throws Exception {
         resources = new ResourceBinderImpl();
-        ProviderBinder.setInstance(null);
-        providers = new ApplicationProviderBinder();
-        providers.addMessageBodyWriter(new AsynchronousProcessListWriter());
+        providers = new DefaultProviderBinder(SERVER, new ServerConfigurationProperties());
+        providers.register(new ServerEmbeddedProvidersFeature());
         resources.addResource("/async", AsynchronousJobService.class, null);
         dependencySupplier = new DependencySupplierImpl();
-        RequestDispatcher dispatcher = new RequestDispatcher(resources);
-        RequestHandlerImpl requestHandler = new RequestHandlerImpl(dispatcher, providers);
-        processor = new EverrestProcessor(new EverrestConfiguration(), dependencySupplier, requestHandler, null);
+        processor = new EverrestProcessor(new ServerConfigurationProperties(), dependencySupplier, new RequestHandlerImpl(new RequestDispatcher(resources), providers), resources, providers, null);
         launcher = new ResourceLauncher(processor);
         groovyPublisher = new GroovyResourcePublisher(resources, dependencySupplier);
     }

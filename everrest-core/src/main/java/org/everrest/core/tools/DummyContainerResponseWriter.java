@@ -13,22 +13,23 @@ package org.everrest.core.tools;
 import org.everrest.core.ContainerResponseWriter;
 import org.everrest.core.GenericContainerResponse;
 
-import javax.ws.rs.ext.MessageBodyWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+
+import static com.google.common.io.ByteStreams.nullOutputStream;
 
 /**
- * Mock object than can be used for any test when we don't care about response entity at all.
+ * Fake object than can be used for any test when we don't care about response entity at all.
  *
  * @author andrew00x
  */
 public class DummyContainerResponseWriter implements ContainerResponseWriter {
-
-    @Override
-    public void writeBody(GenericContainerResponse response, MessageBodyWriter entityWriter) throws IOException {
-    }
-
-
     @Override
     public void writeHeaders(GenericContainerResponse response) throws IOException {
+    }
+
+    @Override
+    public OutputStream getOutputStream() throws IOException {
+        return nullOutputStream();
     }
 }

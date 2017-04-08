@@ -10,13 +10,11 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ApplicationContext;
-import org.everrest.core.RequestFilter;
-import org.everrest.core.ResponseFilter;
+import org.everrest.core.$matchers.ExceptionMatchers;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.UnhandledException;
 import org.everrest.core.tools.ErrorPages;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -28,9 +26,9 @@ import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 
-import static com.google.common.collect.Lists.newArrayList;
 import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
 import static javax.ws.rs.core.Response.serverError;
+import static org.everrest.core.$matchers.ExceptionMatchers.exceptionSameInstance;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -48,29 +46,33 @@ public class RequestHandlerImplTest {
     private ProviderBinder     providers;
     private EnvironmentContext environmentContext;
 
-
     private RequestHandlerImpl requestHandler;
 
     @Before
     public void setUp() throws Exception {
         environmentContext = mock(EnvironmentContext.class);
-        EnvironmentContext.setCurrent(environmentContext);
 
         ApplicationContext applicationContext = mock(ApplicationContext.class);
         when(applicationContext.getPath()).thenReturn(requestPath);
         when(applicationContext.getQueryParameters()).thenReturn(new MultivaluedHashMap<>());
+        when(applicationContext.getEnvironmentContext()).thenReturn(environmentContext);
         ApplicationContext.setCurrent(applicationContext);
 
         request = mock(ContainerRequest.class);
 
         response = mock(ContainerResponse.class);
-        when(response.getHttpHeaders()).thenReturn(new MultivaluedHashMap<>());
+        when(response.getHeaders()).thenReturn(new MultivaluedHashMap<>());
 
         requestDispatcher = mock(RequestDispatcher.class);
 
-        providers = mock(ProviderBinder.class);
+        providers = mock(DefaultProviderBinder.class);
 
         requestHandler = new RequestHandlerImpl(requestDispatcher, providers);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        ApplicationContext.setCurrent(null);
     }
 
     @Test
@@ -81,30 +83,12 @@ public class RequestHandlerImplTest {
     }
 
     @Test
-    public void appliesRequestFilters() throws Exception {
-        RequestFilter requestFilter = mock(RequestFilter.class);
-        when(providers.getRequestFilters(requestPath)).thenReturn(newArrayList(requestFilter));
-        requestHandler.handleRequest(request, response);
-
-        verify(requestFilter).doFilter(request);
-    }
-
-    @Test
-    public void appliesResponseFilters() throws Exception {
-        ResponseFilter responseFilter = mock(ResponseFilter.class);
-        when(providers.getResponseFilters(requestPath)).thenReturn(newArrayList(responseFilter));
-        requestHandler.handleRequest(request, response);
-
-        verify(responseFilter).doFilter(response);
-    }
-
-    @Test
     public void wrapsUnexpectedExceptionWithUnhandledException() throws Exception {
         RuntimeException exception = new RuntimeException();
         doThrow(exception).when(requestDispatcher).dispatch(request, response);
 
         thrown.expect(UnhandledException.class);
-        thrown.expectCause(exceptionSameInstanceMatcher(exception));
+        thrown.expectCause(exceptionSameInstance(exception));
         requestHandler.handleRequest(request, response);
     }
 
@@ -131,7 +115,7 @@ public class RequestHandlerImplTest {
         doThrow(webApplicationException).when(requestDispatcher).dispatch(request, response);
 
         thrown.expect(UnhandledException.class);
-        thrown.expect(unhandledExceptionWIthStatusMatcher(403));
+        thrown.expect(ExceptionMatchers.unhandledExceptionWithStatus(403));
         requestHandler.handleRequest(request, response);
     }
 
@@ -146,7 +130,7 @@ public class RequestHandlerImplTest {
         doThrow(webApplicationException).when(requestDispatcher).dispatch(request, response);
 
         thrown.expect(UnhandledException.class);
-        thrown.expectCause(exceptionSameInstanceMatcher(exception));
+        thrown.expectCause(exceptionSameInstance(exception));
         requestHandler.handleRequest(request, response);
     }
 
@@ -160,7 +144,7 @@ public class RequestHandlerImplTest {
         doThrow(webApplicationException).when(requestDispatcher).dispatch(request, response);
 
         thrown.expect(UnhandledException.class);
-        thrown.expectCause(exceptionSameInstanceMatcher(webApplicationException));
+        thrown.expectCause(exceptionSameInstance(webApplicationException));
         requestHandler.handleRequest(request, response);
     }
 
@@ -232,7 +216,7 @@ public class RequestHandlerImplTest {
         doThrow(internalException).when(requestDispatcher).dispatch(request, response);
 
         thrown.expect(UnhandledException.class);
-        thrown.expectCause(exceptionSameInstanceMatcher(exception));
+        thrown.expectCause(exceptionSameInstance(exception));
         requestHandler.handleRequest(request, response);
     }
 
@@ -246,7 +230,7 @@ public class RequestHandlerImplTest {
         doThrow(internalException).when(requestDispatcher).dispatch(request, response);
 
         thrown.expect(UnhandledException.class);
-        thrown.expectCause(exceptionSameInstanceMatcher(internalException));
+        thrown.expectCause(exceptionSameInstance(internalException));
         requestHandler.handleRequest(request, response);
     }
 
@@ -277,35 +261,7 @@ public class RequestHandlerImplTest {
         when(providers.getExceptionMapper(Exception.class)).thenReturn(null);
 
         thrown.expect(UnhandledException.class);
-        thrown.expectCause(exceptionSameInstanceMatcher(exception));
+        thrown.expectCause(exceptionSameInstance(exception));
         requestHandler.handleRequest(request, response);
-    }
-
-    private BaseMatcher<Throwable> exceptionSameInstanceMatcher(Exception expectedException) {
-        return new BaseMatcher<Throwable>() {
-            @Override
-            public boolean matches(Object item) {
-                return item == expectedException;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(String.format("Expected exception: %s", expectedException));
-            }
-        };
-    }
-
-    private BaseMatcher<Throwable> unhandledExceptionWIthStatusMatcher(int status) {
-        return new BaseMatcher<Throwable>() {
-            @Override
-            public boolean matches(Object item) {
-                return ((UnhandledException)item).getResponseStatus() == status;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(String.format("Expected UnhandledException with status: %s", status));
-            }
-        };
     }
 }

@@ -20,6 +20,9 @@ import javax.ws.rs.Path;
 
 import static com.jayway.restassured.RestAssured.expect;
 import static com.jayway.restassured.RestAssured.given;
+import static org.everrest.assured.JettyHttpServer.ADMIN_USER_NAME;
+import static org.everrest.assured.JettyHttpServer.ADMIN_USER_PASSWORD;
+import static org.everrest.assured.JettyHttpServer.SECURE_PATH;
 
 @Listeners(value = {EverrestJetty.class})
 public class TestSecureServices {
@@ -27,89 +30,73 @@ public class TestSecureServices {
     public class SecureService {
         @GET
         @RolesAllowed("cloud-admin")
-        @Path("/sstring")
+        @Path("/protected")
         public String getSecure() {
-            return "sstring";
+            return "protected";
         }
 
         @GET
-        @Path("/usstring")
+        @Path("/unprotected")
         public String getUSecure() {
-            return "usstring";
+            return "unprotected";
         }
     }
 
     private final SecureService secureService = new SecureService();
 
     @Test
-    public void shouldAllowToCallUnsecureMethodWithUnsecureRequest() {
-        expect()
-                .body(Matchers.equalTo("usstring"))
-                .when().get("/secure-test/usstring");
+    public void allowsToCallUnprotectedMethodThroughUnprotectedContextWithoutAuthentication() {
+        expect().body(Matchers.equalTo("unprotected"))
+                .when().get("/secure-test/unprotected");
     }
 
     @Test
-    public void shouldNotAllowToCallUnsecureMethodWithSecureRequest() {
-        expect()
-                .statusCode(401)
-                .when().get(JettyHttpServer.SECURE_PATH + "/secure-test/usstring");
+    public void doesNotAllowToCallUnprotectedMethodThroughProtectedContextWithoutAuthentication() {
+        expect().statusCode(401)
+                .when().get(SECURE_PATH + "/secure-test/unprotected");
     }
 
     @Test
-    public void shouldNotAllowToCallSecureMethodWithSecureRequestWithoutAutorization() {
-        expect()
-                .statusCode(401)
-                .when().get(JettyHttpServer.SECURE_PATH + "/secure-test/sstring");
+    public void doesNotAllowToCallProtectedMethodThroughProtectedContextWithoutAuthentication() {
+        expect().statusCode(401)
+                .when().get(SECURE_PATH + "/secure-test/protected");
     }
 
     @Test
-    public void shouldNotAllowToCallSecureMethodWithUnsecureRequest() {
-        expect()
-                .statusCode(403)
-                .when().get("/secure-test/sstring");
+    public void doesNotAllowToCallProtectedMethodThroughUnprotectedContextWithoutAuthentication() {
+        expect().statusCode(403)
+                .when().get("/secure-test/protected");
     }
 
     @Test
-    public void shouldAllowToCallUnsecureMethodWithSecureRequest() {
-        //given
-        given()
-                .auth().basic(JettyHttpServer.ADMIN_USER_NAME, JettyHttpServer.ADMIN_USER_PASSWORD)
-                //when-then
-                .expect()
-                .body(Matchers.equalTo("usstring"))
-                .when().get("/secure-test/usstring");
+    public void allowsToCallUnprotectedMethodThroughUnprotectedContextWithAuthentication() {
+        given().auth().basic(ADMIN_USER_NAME, ADMIN_USER_PASSWORD)
+               .expect()
+               .body(Matchers.equalTo("unprotected"))
+               .when().get("/secure-test/unprotected");
     }
 
     @Test
-    public void shouldAllowToCallUnsecureMethodWithSecureRequestURL() {
-        //given
-        given()
-                .auth().basic(JettyHttpServer.ADMIN_USER_NAME, JettyHttpServer.ADMIN_USER_PASSWORD)
-                //when-then
-                .expect()
-                .body(Matchers.equalTo("usstring"))
-                .when().get(JettyHttpServer.SECURE_PATH + "/secure-test/usstring");
+    public void allowsToCallUnprotectedMethodThroughProtectedContextWithAuthentication() {
+        given().auth().basic(ADMIN_USER_NAME, ADMIN_USER_PASSWORD)
+               .expect()
+               .body(Matchers.equalTo("unprotected"))
+               .when().get(SECURE_PATH + "/secure-test/unprotected");
     }
 
     @Test
-    public void shouldAllowToCallSecureMethodWithSecureRequestURL() {
-        //given
-        given()
-                .auth().basic(JettyHttpServer.ADMIN_USER_NAME, JettyHttpServer.ADMIN_USER_PASSWORD)
-                //when-then
-                .expect()
-                .body(Matchers.equalTo("sstring"))
-                .when().get(JettyHttpServer.SECURE_PATH + "/secure-test/sstring");
+    public void allowsToCallProtectedMethodThroughProtectedContextWithAuthentication() {
+        given().auth().basic(ADMIN_USER_NAME, ADMIN_USER_PASSWORD)
+               .expect()
+               .body(Matchers.equalTo("protected"))
+               .when().get(SECURE_PATH + "/secure-test/protected");
     }
 
     @Test
-    public void shouldNotAllowToCallSecureMethodWithUnsecureULR() {
-        //given
-        given()
-                .auth().basic(JettyHttpServer.ADMIN_USER_NAME, JettyHttpServer.ADMIN_USER_PASSWORD)
-                //when-then
-                .expect()
-                .statusCode(403)
-                .when().get("/secure-test/sstring");
+    public void doesNotAllowToCallProtectedMethodThroughUnprotectedContextWithAuthentication() {
+        given().auth().basic(ADMIN_USER_NAME, ADMIN_USER_PASSWORD)
+               .expect()
+               .statusCode(403)
+               .when().get("/secure-test/protected");
     }
 }

@@ -10,7 +10,9 @@
  *******************************************************************************/
 package org.everrest.core;
 
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.LifecycleComponent;
+import org.everrest.core.impl.PerRequestObjectFactory;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -29,7 +31,7 @@ public class PerRequestObjectFactoryTest {
 
     private PerRequestObjectFactory perRequestObjectFactory;
 
-    private ApplicationContext    applicationContext;
+    private ApplicationContext applicationContext;
     private ConstructorDescriptor constructorDescriptor;
     private FieldInjector         fieldInjector;
     private List<LifecycleComponent> lifecycleComponents = new ArrayList<>();

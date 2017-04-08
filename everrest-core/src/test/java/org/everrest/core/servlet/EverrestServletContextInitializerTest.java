@@ -1,15 +1,17 @@
 package org.everrest.core.servlet;
 
+import com.google.common.collect.ImmutableMap;
 import org.everrest.core.DependencySupplier;
+import org.everrest.core.ProviderBinder;
+import org.everrest.core.RequestHandler;
 import org.everrest.core.ResourceBinder;
+import org.everrest.core.async.AsynchronousJobPool;
 import org.everrest.core.impl.EverrestApplication;
-import org.everrest.core.impl.EverrestConfiguration;
 import org.everrest.core.impl.EverrestProcessor;
-import org.everrest.core.impl.ProviderBinder;
-import org.everrest.core.impl.async.AsynchronousJobPool;
+import org.everrest.core.impl.RequestDispatcher;
+import org.everrest.core.impl.ServerConfigurationProperties;
 import org.everrest.core.impl.async.AsynchronousJobService;
 import org.everrest.core.impl.async.AsynchronousProcessListWriter;
-import org.everrest.core.impl.method.filter.SecurityConstraint;
 import org.everrest.core.tools.DependencySupplierImpl;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,6 +34,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class EverrestServletContextInitializerTest {
@@ -49,7 +52,7 @@ public class EverrestServletContextInitializerTest {
     }
 
     @Test
-    public void createsApplicationIsConfiguredInServletContext() {
+    public void createsApplicationIfItConfiguredInServletContext() {
         when(servletContext.getInitParameter("javax.ws.rs.Application")).thenReturn(SomeApplication.class.getName());
 
         EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
@@ -96,9 +99,10 @@ public class EverrestServletContextInitializerTest {
         configureInitParamsInServletContext(initParams);
 
         EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
-        EverrestConfiguration configuration = everrestServletContextInitializer.createConfiguration();
+        ServerConfigurationProperties configuration = everrestServletContextInitializer.createConfiguration();
 
-        assertEquals(initParams, configuration.getAllProperties());
+        assertEquals(initParams, configuration.getProperties());
+        verify(servletContext).setAttribute(ServerConfigurationProperties.class.getName(), configuration);
     }
 
     @Test
@@ -106,14 +110,16 @@ public class EverrestServletContextInitializerTest {
         EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
         ResourceBinder resources = everrestServletContextInitializer.createResourceBinder();
         assertNotNull(resources);
+        verify(servletContext).setAttribute(ResourceBinder.class.getName(), resources);
     }
 
     @Test
     public void createsDependencySupplier() {
         EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
-        DependencySupplier dependencySupplier = everrestServletContextInitializer.getDependencySupplier();
+        DependencySupplier dependencySupplier = everrestServletContextInitializer.createDependencySupplier();
         assertTrue(String.format("ServletContextDependencySupplier is expected to be created but %s found", dependencySupplier),
                    dependencySupplier instanceof ServletContextDependencySupplier);
+        verify(servletContext).setAttribute(DependencySupplier.class.getName(), dependencySupplier);
     }
 
     @Test
@@ -121,7 +127,7 @@ public class EverrestServletContextInitializerTest {
         DependencySupplier configuredDependencySupplier = new DependencySupplierImpl();
         when(servletContext.getAttribute(DependencySupplier.class.getName())).thenReturn(configuredDependencySupplier);
         EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
-        DependencySupplier dependencySupplier = everrestServletContextInitializer.getDependencySupplier();
+        DependencySupplier dependencySupplier = everrestServletContextInitializer.createDependencySupplier();
         assertSame(String.format("ServletContextDependencySupplier is expected to be created but %s found", dependencySupplier),
                    dependencySupplier, configuredDependencySupplier);
     }
@@ -129,8 +135,38 @@ public class EverrestServletContextInitializerTest {
     @Test
     public void createsProviderBinder() {
         EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
-        ProviderBinder providers = everrestServletContextInitializer.createProviderBinder();
+        ServerConfigurationProperties configuration = new ServerConfigurationProperties();
+        ProviderBinder providers = everrestServletContextInitializer.createProviderBinder(configuration);
         assertNotNull(providers);
+        verify(servletContext).setAttribute(ProviderBinder.class.getName(), providers);
+    }
+
+    @Test
+    public void createsRequestHandler() {
+        EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
+        RequestDispatcher dispatcher = mock(RequestDispatcher.class);
+        ProviderBinder providers = mock(ProviderBinder.class);
+        RequestHandler requestHandler = everrestServletContextInitializer.createRequestHandler(dispatcher, providers);
+        assertNotNull(requestHandler);
+        verify(servletContext).setAttribute(RequestHandler.class.getName(), requestHandler);
+    }
+
+    @Test
+    public void createsRequestDispatcher() {
+        EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
+        ResourceBinder resources = mock(ResourceBinder.class);
+        RequestDispatcher dispatcher = everrestServletContextInitializer.createRequestDispatcher(resources);
+        assertNotNull(dispatcher);
+        verify(servletContext).setAttribute(RequestDispatcher.class.getName(), dispatcher);
+    }
+
+    @Test
+    public void createsEverrestProcessor() {
+        configureInitParamsInServletContext(ImmutableMap.of());
+        EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
+        EverrestProcessor processor = everrestServletContextInitializer.createEverrestProcessor();
+        assertNotNull(processor);
+        verify(servletContext).setAttribute(EverrestProcessor.class.getName(), processor);
     }
 
     @Test
@@ -144,19 +180,6 @@ public class EverrestServletContextInitializerTest {
 
         assertTrue("AsynchronousJobService is expected to be mapped to path /async",
                    everrestApplication.getResourceClasses().get("/async") == AsynchronousJobService.class);
-
-        Object[] objectsMatchedToAsynchronousJobPool =
-                everrestApplication.getSingletons().stream().filter(e -> e instanceof AsynchronousJobPool).toArray();
-        assertTrue("AsynchronousJobPool is expected to be deployed as provider", objectsMatchedToAsynchronousJobPool.length == 1);
-        AsynchronousJobPool asynchronousJobPool = (AsynchronousJobPool)objectsMatchedToAsynchronousJobPool[0];
-        assertEquals("/async", asynchronousJobPool.getAsynchronousServicePath());
-        assertEquals(10, asynchronousJobPool.getThreadPoolSize());
-        assertEquals(100, asynchronousJobPool.getMaxQueueSize());
-        assertEquals(512, asynchronousJobPool.getMaxCacheSize());
-        assertEquals(60, asynchronousJobPool.getJobTimeout());
-
-        assertTrue("AsynchronousProcessListWriter is expected to be deployed as provider",
-                   everrestApplication.getSingletons().stream().filter(e -> e instanceof AsynchronousProcessListWriter).count() == 1);
     }
 
     @Test
@@ -176,19 +199,6 @@ public class EverrestServletContextInitializerTest {
 
         assertTrue("AsynchronousJobService is expected to be mapped to path /zzz",
                    everrestApplication.getResourceClasses().get("/zzz") == AsynchronousJobService.class);
-
-        Object[] objectsMatchedToAsynchronousJobPool =
-                everrestApplication.getSingletons().stream().filter(e -> e instanceof AsynchronousJobPool).toArray();
-        assertTrue("AsynchronousJobPool is expected to be deployed as provider", objectsMatchedToAsynchronousJobPool.length == 1);
-        AsynchronousJobPool asynchronousJobPool = (AsynchronousJobPool)objectsMatchedToAsynchronousJobPool[0];
-        assertEquals("/zzz", asynchronousJobPool.getAsynchronousServicePath());
-        assertEquals(20, asynchronousJobPool.getThreadPoolSize());
-        assertEquals(200, asynchronousJobPool.getMaxQueueSize());
-        assertEquals(1024, asynchronousJobPool.getMaxCacheSize());
-        assertEquals(120, asynchronousJobPool.getJobTimeout());
-
-        assertTrue("AsynchronousProcessListWriter is expected to be deployed as provider",
-                   everrestApplication.getSingletons().stream().filter(e -> e instanceof AsynchronousProcessListWriter).count() == 1);
     }
 
     @Test
@@ -209,47 +219,6 @@ public class EverrestServletContextInitializerTest {
 
         assertTrue("AsynchronousProcessListWriter is not expected to be deployed as provider",
                    everrestApplication.getSingletons().stream().filter(e -> e instanceof AsynchronousProcessListWriter).count() == 0);
-    }
-
-    @Test
-    public void turnsOnSecurityConstrainSupportInConfiguration() {
-        Map<String, String> initParams = new HashMap<>();
-        initParams.put("org.everrest.security", "true");
-        configureInitParamsInServletContext(initParams);
-
-        EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
-        EverrestProcessor everrestProcessor = everrestServletContextInitializer.createEverrestProcessor();
-        EverrestApplication everrestApplication = everrestProcessor.getApplication();
-
-        assertTrue("SecurityConstraint is expected to be deployed as provider",
-                   everrestApplication.getSingletons().stream().filter(e -> e instanceof SecurityConstraint).count() == 1);
-    }
-
-    @Test
-    public void turnsOnSecurityConstrainSupportByDefault() {
-        Map<String, String> initParams = new HashMap<>();
-        configureInitParamsInServletContext(initParams);
-
-        EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
-        EverrestProcessor everrestProcessor = everrestServletContextInitializer.createEverrestProcessor();
-        EverrestApplication everrestApplication = everrestProcessor.getApplication();
-
-        assertTrue("SecurityConstraint is expected to be deployed as provider",
-                   everrestApplication.getSingletons().stream().filter(e -> e instanceof SecurityConstraint).count() == 1);
-    }
-
-    @Test
-    public void turnsOffSecurityConstrainSupportInConfiguration() {
-        Map<String, String> initParams = new HashMap<>();
-        initParams.put("org.everrest.security", "false");
-        configureInitParamsInServletContext(initParams);
-
-        EverrestServletContextInitializer everrestServletContextInitializer = new EverrestServletContextInitializer(servletContext);
-        EverrestProcessor everrestProcessor = everrestServletContextInitializer.createEverrestProcessor();
-        EverrestApplication everrestApplication = everrestProcessor.getApplication();
-
-        assertTrue("SecurityConstraint is not expected to be deployed as provider",
-                   everrestApplication.getSingletons().stream().filter(e -> e instanceof SecurityConstraint).count() == 0);
     }
 
     private void configureInitParamsInServletContext(Map<String, String> initParams) {

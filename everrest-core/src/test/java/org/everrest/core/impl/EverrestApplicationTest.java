@@ -11,8 +11,6 @@
 package org.everrest.core.impl;
 
 import com.google.common.collect.ImmutableMap;
-
-import org.everrest.core.ObjectFactory;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -86,13 +84,6 @@ public class EverrestApplicationTest {
     }
 
     @Test
-    public void addsFactory() {
-        ObjectFactory objectFactory = mock(ObjectFactory.class);
-        everrestApplication.addFactory(objectFactory);
-        assertEquals(newHashSet(objectFactory), everrestApplication.getFactories());
-    }
-
-    @Test
     public void addsPerRequestResource() {
         everrestApplication.addResource("/a", ResourceOne.class);
         assertEquals(ImmutableMap.of("/a", ResourceOne.class), everrestApplication.getResourceClasses());
@@ -103,22 +94,6 @@ public class EverrestApplicationTest {
         ResourceOne resourceOne = new ResourceOne();
         everrestApplication.addResource("/a", resourceOne);
         assertEquals(ImmutableMap.of("/a", resourceOne), everrestApplication.getResourceSingletons());
-    }
-
-    @Test
-    public void addsFactoriesFromNewEverrestApplicationToTheBeginningOfSetOfFactories() {
-        EverrestApplication applicationOne = mock(EverrestApplication.class);
-        EverrestApplication applicationTwo = mock(EverrestApplication.class);
-        ObjectFactory objectFactoryOne = mock(ObjectFactory.class);
-        ObjectFactory objectFactoryTwo = mock(ObjectFactory.class);
-
-        when(applicationOne.getFactories()).thenReturn(newHashSet(objectFactoryOne));
-        when(applicationTwo.getFactories()).thenReturn(newHashSet(objectFactoryTwo));
-
-        everrestApplication.addApplication(applicationTwo);
-        assertEquals(newHashSet(objectFactoryTwo), everrestApplication.getFactories());
-        everrestApplication.addApplication(applicationOne);
-        assertEquals(newHashSet(objectFactoryOne, objectFactoryTwo), everrestApplication.getFactories());
     }
 
     @Test

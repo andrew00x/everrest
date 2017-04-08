@@ -12,6 +12,7 @@ package org.everrest.core.impl.provider;
 
 import org.everrest.core.provider.EntityProvider;
 
+import javax.annotation.Priority;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.StreamingOutput;
@@ -22,6 +23,9 @@ import java.io.OutputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
+
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 public class StreamOutputEntityProvider implements EntityProvider<StreamingOutput> {
 

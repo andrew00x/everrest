@@ -28,7 +28,7 @@ public class ScriptFinderFactory {
         return all.get(protocol);
     }
 
-    public static void addScriptFilder(String protocol, ScriptFinder finder) {
+    public static void addScriptFinder(String protocol, ScriptFinder finder) {
         all.put(protocol, finder);
     }
 

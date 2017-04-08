@@ -11,12 +11,11 @@
 package org.everrest.groovy;
 
 import groovy.lang.GroovyCodeSource;
-
 import org.everrest.core.DependencySupplier;
 import org.everrest.core.ObjectFactory;
-import org.everrest.core.PerRequestObjectFactory;
 import org.everrest.core.ResourceBinder;
 import org.everrest.core.ResourcePublicationException;
+import org.everrest.core.impl.PerRequestObjectFactory;
 import org.everrest.core.resource.ResourceDescriptor;
 import org.everrest.core.uri.UriPattern;
 

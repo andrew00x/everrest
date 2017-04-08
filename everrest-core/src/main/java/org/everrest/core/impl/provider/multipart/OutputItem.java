@@ -71,7 +71,7 @@ public class OutputItem {
     }
 
     public static class OutputItemBuilder {
-        private String name;
+        private String    name;
         private Object    entity;
         private Class<?>  type;
         private Type      genericType;

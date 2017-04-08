@@ -186,10 +186,6 @@ public class JsonWriter {
         }
     }
 
-    /** @deprecated use {@link #writeValue(String)}*/
-    public void writeString(String value) throws JsonException {
-        writeValue(value);
-    }
 
     public void writeValue(String value) throws JsonException {
         writeCurrentKey();

@@ -10,14 +10,12 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.DependencySupplier;
 import org.everrest.core.FieldInjector;
 import org.everrest.core.Parameter;
-import org.everrest.core.impl.method.ParameterResolver;
-import org.everrest.core.impl.method.ParameterResolverFactory;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
+import org.everrest.core.method.ParameterResolver;
+import org.everrest.core.method.ParameterResolverFactory;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -32,13 +30,12 @@ import javax.ws.rs.MatrixParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.Response;
 
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
+import static org.everrest.core.$matchers.ExceptionMatchers.webApplicationExceptionWithStatus;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -68,8 +65,13 @@ public class FieldInjectorImplTest {
 
     @Before
     public void setUp() throws Exception {
-        mockApplicationContext();
         mockParameterResolverFactory();
+        mockApplicationContext();
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        ApplicationContext.setCurrent(null);
     }
 
     private void mockApplicationContext() {
@@ -77,6 +79,7 @@ public class FieldInjectorImplTest {
         applicationContext = mock(ApplicationContext.class);
         when(applicationContext.getQueryParameters()).thenReturn(new MultivaluedHashMap<>());
         when(applicationContext.getDependencySupplier()).thenReturn(dependencySupplier);
+        when(applicationContext.getParameterResolverFactory()).thenReturn(parameterResolverFactory);
         ApplicationContext.setCurrent(applicationContext);
     }
 
@@ -98,7 +101,7 @@ public class FieldInjectorImplTest {
 
     @Test
     public void createsFieldInjectorForField() throws Exception {
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("pathParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("pathParam"));
 
         assertEquals("pathParam", fieldInjector.getName());
         assertEquals(PathParam.class, fieldInjector.getAnnotation().annotationType());
@@ -110,7 +113,7 @@ public class FieldInjectorImplTest {
 
     @Test
     public void createsFieldInjectorForEncodedField() throws Exception {
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("queryParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("queryParam"));
 
         assertEquals("queryParam", fieldInjector.getName());
         assertEquals(QueryParam.class, fieldInjector.getAnnotation().annotationType());
@@ -122,7 +125,7 @@ public class FieldInjectorImplTest {
 
     @Test
     public void createsFieldInjectorForFieldWIthDefaultValue() throws Exception {
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("headerParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("headerParam"));
 
         assertEquals("headerParam", fieldInjector.getName());
         assertEquals(HeaderParam.class, fieldInjector.getAnnotation().annotationType());
@@ -136,7 +139,7 @@ public class FieldInjectorImplTest {
     public void injectsField() throws Exception {
         when(pathParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenReturn("path parameter");
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("pathParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("pathParam"));
         Resource instance = new Resource();
         fieldInjector.inject(instance, applicationContext);
 
@@ -147,7 +150,7 @@ public class FieldInjectorImplTest {
     public void usesSetterForSettingField() throws Exception {
         when(headerParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenReturn("header parameter");
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("headerParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("headerParam"));
         Resource instance = spy(new Resource());
         fieldInjector.inject(instance, applicationContext);
 
@@ -165,7 +168,7 @@ public class FieldInjectorImplTest {
             }
         }))).thenReturn(dependency);
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("dependency"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("dependency"));
         Resource instance = new Resource();
         fieldInjector.inject(instance, applicationContext);
 
@@ -176,10 +179,10 @@ public class FieldInjectorImplTest {
     public void throwsWebApplicationExceptionWithStatus_NOT_FOUND_WhenFieldAnnotatedWithPathParamAnnotationCanNotBeResolved() throws Exception {
         when(pathParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("pathParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("pathParam"));
         Resource instance = new Resource();
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(NOT_FOUND));
+        thrown.expect(webApplicationExceptionWithStatus(NOT_FOUND));
         fieldInjector.inject(instance, applicationContext);
     }
 
@@ -187,10 +190,10 @@ public class FieldInjectorImplTest {
     public void throwsWebApplicationExceptionWithStatus_NOT_FOUND_WhenFieldAnnotatedWithQueryParamAnnotationCanNotBeResolved() throws Exception {
         when(queryParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("queryParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("queryParam"));
         Resource instance = new Resource();
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(NOT_FOUND));
+        thrown.expect(webApplicationExceptionWithStatus(NOT_FOUND));
         fieldInjector.inject(instance, applicationContext);
     }
 
@@ -198,10 +201,10 @@ public class FieldInjectorImplTest {
     public void throwsWebApplicationExceptionWithStatus_NOT_FOUND_WhenFieldAnnotatedWithMatrixParamAnnotationCanNotBeResolved() throws Exception {
         when(matrixParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("matrixParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("matrixParam"));
         Resource instance = new Resource();
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(NOT_FOUND));
+        thrown.expect(webApplicationExceptionWithStatus(NOT_FOUND));
         fieldInjector.inject(instance, applicationContext);
     }
 
@@ -209,10 +212,10 @@ public class FieldInjectorImplTest {
     public void throwsWebApplicationExceptionWithStatus_BAD_REQUEST_WhenFieldAnnotatedWithHeaderParamAnnotationCanNotBeResolved() throws Exception {
         when(headerParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("headerParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("headerParam"));
         Resource instance = new Resource();
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(BAD_REQUEST));
+        thrown.expect(webApplicationExceptionWithStatus(BAD_REQUEST));
         fieldInjector.inject(instance, applicationContext);
     }
 
@@ -220,10 +223,10 @@ public class FieldInjectorImplTest {
     public void throwsWebApplicationExceptionWithStatus_BAD_REQUEST_WhenFieldAnnotatedWithCookieParamAnnotationCanNotBeResolved() throws Exception {
         when(cookieParameterResolver.resolve(isA(Parameter.class), eq(applicationContext))).thenThrow(new Exception());
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("cookieParam"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("cookieParam"));
         Resource instance = new Resource();
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(BAD_REQUEST));
+        thrown.expect(webApplicationExceptionWithStatus(BAD_REQUEST));
         fieldInjector.inject(instance, applicationContext);
     }
 
@@ -236,32 +239,17 @@ public class FieldInjectorImplTest {
             }
         }))).thenThrow(new RuntimeException());
 
-        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("dependency"), parameterResolverFactory);
+        FieldInjectorImpl fieldInjector = new FieldInjectorImpl(Resource.class.getDeclaredField("dependency"));
         Resource instance = new Resource();
 
-        thrown.expect(webApplicationExceptionWithStatusMatcher(INTERNAL_SERVER_ERROR));
+        thrown.expect(webApplicationExceptionWithStatus(INTERNAL_SERVER_ERROR));
         fieldInjector.inject(instance, applicationContext);
     }
 
     @Test
     public void throwsRuntimeExceptionWhenFieldHasTwoTypesOfAnnotation() throws Exception {
         thrown.expect(RuntimeException.class);
-        new FieldInjectorImpl(InvalidResource.class.getDeclaredField("pathParam"), parameterResolverFactory);
-    }
-
-    private BaseMatcher<Throwable> webApplicationExceptionWithStatusMatcher(Response.Status status) {
-        return new BaseMatcher<Throwable>() {
-            @Override
-            public boolean matches(Object item) {
-                return item instanceof WebApplicationException
-                       && status.equals(((WebApplicationException)item).getResponse().getStatusInfo());
-            }
-
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(String.format("WebApplicationException with status %d \"%s\"", status.getStatusCode(), status.getReasonPhrase()));
-            }
-        };
+        new FieldInjectorImpl(InvalidResource.class.getDeclaredField("pathParam"));
     }
 
     @Path("/a/{x}")

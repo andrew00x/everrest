@@ -69,8 +69,7 @@ class DefaultInputItem implements InputItem {
         final MediaType mediaType = getMediaType();
         final MessageBodyReader<T> reader = providers.getMessageBodyReader(type, genericType, EMPTY, mediaType);
         if (reader == null) {
-            throw new RuntimeException(
-                    String.format("Unable to find a MessageBodyReader for media type '%s' and class '%s'", mediaType, type.getName()));
+            throw new IllegalStateException(String.format("Unable to find a MessageBodyReader for media type '%s' and class '%s'", mediaType, type.getName()));
         }
         return reader.readFrom(type, genericType, EMPTY, mediaType, headers, getBody());
     }

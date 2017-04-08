@@ -12,6 +12,7 @@ package org.everrest.core;
 
 import javax.ws.rs.ext.MessageBodyWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 
 /**
  * All implementation of this interface should be able to write data in container response, e. g. servlet response.
@@ -21,24 +22,34 @@ import java.io.IOException;
 public interface ContainerResponseWriter {
 
     /**
-     * Write HTTP status and headers in HTTP response.
+     * Writes HTTP status and headers in HTTP response.
      *
-     * @param response
-     *         container response
-     * @throws IOException
-     *         if any i/o error occurs
+     * @param response container response
+     * @throws IOException if any i/o error occurs
      */
     void writeHeaders(GenericContainerResponse response) throws IOException;
 
     /**
-     * Write entity body in output stream.
+     * Writes entity body in output stream.
      *
-     * @param response
-     *         container response
-     * @param entityWriter
-     *         See {@link MessageBodyWriter}
-     * @throws IOException
-     *         if any i/o error occurs
+     * @param response     container response
+     * @param entityWriter See {@link MessageBodyWriter}
+     * @throws IOException if any i/o error occurs
      */
-    void writeBody(GenericContainerResponse response, MessageBodyWriter entityWriter) throws IOException;
+    default void writeBody(GenericContainerResponse response, MessageBodyWriter entityWriter) throws IOException {
+        Object entity = response.getEntity();
+        if (entity != null) {
+            OutputStream out = getOutputStream();
+            entityWriter.writeTo(entity, entity.getClass(), response.getEntityType(), response.getEntityAnnotations(),
+                                 response.getMediaType(), response.getHeaders(), out);
+            out.flush();
+        }
+    }
+
+    /**
+     * Gets container's output stream, e.g. {@code HttpServletResponse.getOutputStream()}
+     *
+     * @throws IOException if any i/o error occurs
+     */
+    OutputStream getOutputStream() throws IOException;
 }

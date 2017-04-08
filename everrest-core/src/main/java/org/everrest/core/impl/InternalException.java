@@ -10,7 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.impl;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Should not be used by custom services. They have to use
@@ -28,7 +28,7 @@ public final class InternalException extends RuntimeException {
      *         cause
      */
     public InternalException(String message, Throwable cause) {
-        super(message, checkNotNull(cause));
+        super(message, requireNonNull(cause));
     }
 
     /**
@@ -36,6 +36,6 @@ public final class InternalException extends RuntimeException {
      *         cause
      */
     public InternalException(Throwable cause) {
-        super(checkNotNull(cause));
+        super(requireNonNull(cause));
     }
 }

@@ -24,26 +24,20 @@ import java.util.List;
  */
 public final class OptionsRequestResourceMethodDescriptorImpl extends ResourceMethodDescriptorImpl {
     /**
-     * @param httpMethod
-     *         HTTP request method designator
-     * @param parameters
-     *         list of method parameters. See {@link Parameter}
-     * @param parentResource
-     *         parent resource for this method
-     * @param consumes
-     *         list of media types which this method can consume
-     * @param produces
-     *         list of media types which this method can produce
-     * @param additional
-     *         additional annotations
+     * @param httpMethod             HTTP request method designator
+     * @param parameters             list of method parameters. See {@link Parameter}
+     * @param parentResource         parent resource for this method
+     * @param consumes               list of media types which this method can consume
+     * @param produces               list of media types which this method can produce
+     * @param nameBindingAnnotations name binding annotations, see {@link javax.ws.rs.NameBinding}
      */
     public OptionsRequestResourceMethodDescriptorImpl(String httpMethod,
                                                       List<Parameter> parameters,
                                                       ResourceDescriptor parentResource,
                                                       List<MediaType> consumes,
                                                       List<MediaType> produces,
-                                                      Annotation[] additional) {
-        super(null, httpMethod, parameters, parentResource, consumes, produces, additional);
+                                                      Annotation[] nameBindingAnnotations) {
+        super(null, httpMethod, parameters, parentResource, consumes, produces, nameBindingAnnotations);
     }
 
     @Override

@@ -11,7 +11,6 @@
 package org.everrest.assured;
 
 import com.jayway.restassured.response.Response;
-
 import org.mockito.testng.MockitoTestNGListener;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
@@ -32,8 +31,7 @@ import static org.testng.Assert.assertEquals;
 public class ContextInjectionTest {
     @Path("test")
     public class EchoService {
-        @Context
-        protected UriInfo uriInfo;
+        @Context protected UriInfo uriInfo;
 
         @GET
         @Path("my_method")
@@ -45,8 +43,7 @@ public class ContextInjectionTest {
 
     @Path("test2")
     public static class EchoService2 {
-        @Context
-        protected UriInfo uriInfo;
+        @Context protected UriInfo uriInfo;
 
         @GET
         @Path("my_method")
@@ -60,16 +57,14 @@ public class ContextInjectionTest {
     EchoService2 echoServicePerRequest;
 
     @Test
-    public void shouldIjectContextInSingleton() throws Exception {
+    public void injectsContextInSingleton() {
         final Response response = when().get("/test/my_method");
-
         assertEquals(response.getStatusCode(), 200);
     }
 
     @Test
-    public void shouldIjectContextInPerRequest() throws Exception {
+    public void injectsContextInPerRequest() {
         final Response response = when().get("/test2/my_method");
-
         assertEquals(response.getStatusCode(), 200);
     }
 }

@@ -10,9 +10,6 @@
  *******************************************************************************/
 package org.everrest.core;
 
-
-import org.everrest.core.impl.ProviderBinder;
-
 import java.io.IOException;
 
 /**
@@ -35,8 +32,4 @@ public interface RequestHandler {
      *         if any other errors occurs
      */
     void handleRequest(GenericContainerRequest request, GenericContainerResponse response) throws IOException;
-
-    ResourceBinder getResources();
-
-    ProviderBinder getProviders();
 }

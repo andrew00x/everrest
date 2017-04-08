@@ -350,6 +350,10 @@ public final class MediaTypeHelper {
         return false;
     }
 
+    public static MediaType withoutParameters(MediaType mediaType) {
+        return new MediaType(mediaType.getType(), mediaType.getSubtype());
+    }
+
     private MediaTypeHelper() {
     }
 }

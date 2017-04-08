@@ -10,9 +10,12 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.MultivaluedMapImpl;
+import org.everrest.core.method.ParameterResolver;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 
 import javax.ws.rs.CookieParam;
 import javax.ws.rs.core.Cookie;
@@ -27,18 +30,13 @@ public class CookieParameterResolver implements ParameterResolver<CookieParam> {
     private final CookieParam         cookieParam;
     private final TypeProducerFactory typeProducerFactory;
 
-    /**
-     * @param cookieParam
-     *         CookieParam
-     */
     CookieParameterResolver(CookieParam cookieParam, TypeProducerFactory typeProducerFactory) {
         this.cookieParam = cookieParam;
         this.typeProducerFactory = typeProducerFactory;
     }
 
-
     @Override
-    public Object resolve(org.everrest.core.Parameter parameter, ApplicationContext context) throws Exception {
+    public Object resolve(Parameter parameter, ApplicationContext context) throws Exception {
         String param = cookieParam.value();
         if (Cookie.class.isAssignableFrom(parameter.getParameterClass())) {
             Cookie cookie = context.getHttpHeaders().getCookies().get(param);
@@ -46,13 +44,12 @@ public class CookieParameterResolver implements ParameterResolver<CookieParam> {
                 cookie = Cookie.valueOf(parameter.getDefaultValue());
             }
             return cookie;
-        } else {
-            TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType());
-            MultivaluedMap<String, String> cookieValues = new MultivaluedMapImpl();
-            for (Map.Entry<String, Cookie> entry : context.getHttpHeaders().getCookies().entrySet()) {
-                cookieValues.putSingle(entry.getKey(), entry.getValue().getValue());
-            }
-            return typeProducer.createValue(param, cookieValues, parameter.getDefaultValue());
         }
+        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType(), parameter.getAnnotations());
+        MultivaluedMap<String, String> cookieValues = new MultivaluedMapImpl();
+        for (Map.Entry<String, Cookie> entry : context.getHttpHeaders().getCookies().entrySet()) {
+            cookieValues.putSingle(entry.getKey(), entry.getValue().getValue());
+        }
+        return typeProducer.createValue(param, cookieValues, parameter.getDefaultValue());
     }
 }

@@ -11,16 +11,17 @@
 package org.everrest.core.impl.method;
 
 import com.google.common.collect.ImmutableMap;
-
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 import org.junit.Before;
 import org.junit.Test;
 
 import javax.ws.rs.CookieParam;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.MultivaluedMap;
+import java.lang.annotation.Annotation;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
@@ -50,14 +51,16 @@ public class CookieParameterResolverTest {
                                                       "cookie2", cookie2);
         applicationContext = mock(ApplicationContext.class, RETURNS_DEEP_STUBS);
         when(applicationContext.getHttpHeaders().getCookies()).thenReturn(cookies);
+
         cookieParam = mock(CookieParam.class);
         when(cookieParam.value()).thenReturn("cookie1");
 
         parameter = mock(Parameter.class);
+        when(parameter.getAnnotations()).thenReturn(new Annotation[0]);
 
         typeProducer = mock(TypeProducer.class);
         TypeProducerFactory typeProducerFactory = mock(TypeProducerFactory.class);
-        when(typeProducerFactory.createTypeProducer(eq(String.class), any())).thenReturn(typeProducer);
+        when(typeProducerFactory.createTypeProducer(String.class, String.class, new Annotation[0])).thenReturn(typeProducer);
 
         cookieParameterResolver = new CookieParameterResolver(cookieParam, typeProducerFactory);
     }
@@ -97,6 +100,7 @@ public class CookieParameterResolverTest {
     public void convertsCookieValueToTypeSpecifiedInParameter() throws Exception {
         when(cookieParam.value()).thenReturn("cookie1");
         when(parameter.getParameterClass()).thenReturn((Class)String.class);
+        when(parameter.getGenericType()).thenReturn((Class)String.class);
         when(typeProducer.createValue(eq("cookie1"), any(MultivaluedMap.class), any())).thenAnswer(
                 invocation -> ((MultivaluedMap<String, String>)invocation.getArguments()[1]).getFirst("cookie1"));
 

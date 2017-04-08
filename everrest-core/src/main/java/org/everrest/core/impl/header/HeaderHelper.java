@@ -10,11 +10,10 @@
  *******************************************************************************/
 package org.everrest.core.impl.header;
 
-import com.google.common.base.Joiner;
-
 import org.everrest.core.header.QualityValue;
 import org.everrest.core.impl.header.ListHeaderProducer.ListItemFactory;
 
+import javax.ws.rs.core.AbstractMultivaluedMap;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MultivaluedMap;
@@ -24,6 +23,7 @@ import javax.ws.rs.ext.RuntimeDelegate.HeaderDelegate;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -31,11 +31,22 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.Lists.newArrayList;
+import static java.lang.Integer.parseInt;
+import static java.util.Collections.emptyList;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+import static javax.ws.rs.core.HttpHeaders.CONTENT_LENGTH;
 import static javax.ws.rs.core.MediaType.WILDCARD;
 import static org.everrest.core.impl.header.CookieBuilder.aCookie;
 import static org.everrest.core.impl.header.NewCookieBuilder.aNewCookie;
@@ -371,6 +382,22 @@ public class HeaderHelper {
 
     //
 
+    public static int getContentLength(MultivaluedMap<String, ?> headers) {
+        Object value = headers.getFirst(CONTENT_LENGTH);
+        if (value == null) {
+            return -1;
+        }
+        if (value instanceof Integer) {
+            return (Integer)value;
+        }
+        String stringValue = getHeaderAsString(value);
+        try {
+            return parseInt(stringValue);
+        } catch (NumberFormatException ignored) {
+        }
+        return -1;
+    }
+
     public static long getContentLengthLong(MultivaluedMap<String, String> httpHeaders) {
         String contentLengthHeader = httpHeaders.getFirst(HttpHeaders.CONTENT_LENGTH);
         return contentLengthHeader == null ? 0 : Long.parseLong(contentLengthHeader);
@@ -395,13 +422,71 @@ public class HeaderHelper {
     }
 
     /**
+     * Creates string representation of given List of objects for adding to response header. Method uses
+     * {@link HeaderDelegate#toString()}. If required implementation of HeaderDelegate is not accessible
+     * via {@link RuntimeDelegate#createHeaderDelegate(java.lang.Class)} then method {@code toString} of given object is used.
+     *
+     * @param objects
+     *         List of objects
+     * @return List of string representations
+     */
+    public static List<String> getHeaderAsStrings(List<Object> objects) {
+        if (objects == null || objects.isEmpty()) {
+            return emptyList();
+        }
+        return objects.stream().map(HeaderHelper::getHeaderAsString).collect(toList());
+    }
+
+    public static <A, B> MultivaluedMap<String, B> getHeadersView(MultivaluedMap<String, A> headers, Function<List<A>, List<B>> valueConverter) {
+        Map<String, List<B>> map = new AbstractMap<String, List<B>>() {
+            @Override
+            public Set<Map.Entry<String, List<B>>> entrySet() {
+                return headers.entrySet().stream()
+                        .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), valueConverter.apply(e.getValue())))
+                        .collect(toSet());
+            }
+        };
+        return new AbstractMultivaluedMap<String, B>(map) {
+        };
+    }
+
+    public static <A, B> B getFistHeader(String name, MultivaluedMap<String, A> headers, Class<B> asType) {
+        return Optional.ofNullable(headers)
+                .map(map -> map.getFirst(name))
+                .map(headerConverterFor(asType))
+                .orElse(null);
+    }
+
+    public static <A, B> List<B> getHeader(String name, MultivaluedMap<String, A> headers, Class<B> asType) {
+        return Optional.ofNullable(headers)
+                .map(map -> map.get(name))
+                .map(list -> {
+                    Function<Object, B> converter = headerConverterFor(asType);
+                    return list.stream().map(converter::apply).collect(toList());
+                })
+                .orElse(newArrayList());
+    }
+
+    private static <B> Function<Object, B> headerConverterFor(Class<B> type) {
+        return singleValue -> {
+            if (singleValue == null) {
+                return null;
+            }
+            if (type.isAssignableFrom(singleValue.getClass())) {
+                return type.cast(singleValue);
+            }
+            return RuntimeDelegate.getInstance().createHeaderDelegate(type).fromString(singleValue.toString());
+        };
+    }
+
+    /**
      * Convert Collection&lt;String&gt; to single String, where values separated by ','.
      *
      * @param collection
      *         the source list
      * @return String result
      */
-    public static String convertToString(Collection<String> collection) {
+    public static String convertToString(Collection<?> collection) {
         if (collection == null) {
             return null;
         }
@@ -409,7 +494,7 @@ public class HeaderHelper {
             return "";
         }
 
-        return Joiner.on(',').join(collection);
+        return collection.stream().map(HeaderHelper::getHeaderAsString).collect(joining(","));
     }
 
     /**

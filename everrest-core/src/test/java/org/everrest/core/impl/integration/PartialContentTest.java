@@ -65,7 +65,7 @@ public class PartialContentTest extends BaseTest {
         processor.addApplication(new Application() {
             @Override
             public Set<Class<?>> getClasses() {
-                return Collections.<Class<?>>singleton(Resource1.class);
+                return Collections.singleton(Resource1.class);
             }
         });
     }
@@ -79,11 +79,11 @@ public class PartialContentTest extends BaseTest {
         ContainerResponse response = launcher.service("GET", "/a", "", headers, null, writer, null);
 
         assertEquals(206, response.getStatus());
-        MultivaluedMap<String, Object> responseHeaders = response.getHttpHeaders();
+        MultivaluedMap<String, Object> responseHeaders = response.getHeaders();
         assertEquals("4", responseHeaders.getFirst("content-length"));
         assertEquals("bytes 2-5/18", responseHeaders.getFirst("content-range"));
         assertEquals("bytes", responseHeaders.getFirst("accept-ranges"));
-        assertEquals(" be ", new String(writer.getBody()));
+        assertEquals(" be ", writer.getBodyAsString());
     }
 
 }

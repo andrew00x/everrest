@@ -10,6 +10,7 @@
  *******************************************************************************/
 package org.everrest.core.impl.provider.multipart;
 
+import javax.annotation.Priority;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
@@ -27,10 +28,12 @@ import java.util.Collection;
 import java.util.Map;
 
 import static com.google.common.collect.Maps.newHashMap;
+import static org.everrest.core.provider.EntityProvider.EMBEDDED_ENTITY_PROVIDER_PRIORITY;
 
 /**
  * @author andrew00x
  */
+@Priority(EMBEDDED_ENTITY_PROVIDER_PRIORITY)
 @Provider
 @Produces({"multipart/*"})
 public class CollectionMultipartFormDataMessageBodyWriter implements MessageBodyWriter<Collection<OutputItem>> {

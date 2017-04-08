@@ -14,12 +14,8 @@ import org.everrest.core.generated.Book;
 import org.junit.Before;
 import org.junit.Test;
 
-import javax.xml.bind.JAXBContext;
-
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
-import static org.mockito.Mockito.mock;
 
 public class JAXBContextResolverTest {
 
@@ -39,23 +35,5 @@ public class JAXBContextResolverTest {
     @Test
     public void returnsJAXBContextForClass() throws Exception {
         assertNotNull(jaxbContextResolver.getJAXBContext(Book.class));
-    }
-
-    @Test
-    public void savesGivenJAXBContext() throws Exception {
-        JAXBContext jaxbContext = mock(JAXBContext.class);
-        jaxbContextResolver.addJAXBContext(jaxbContext, Book.class);
-        assertSame(jaxbContext, jaxbContextResolver.getJAXBContext(Book.class));
-    }
-
-    @Test
-    public void removesJAXBContext() throws Exception {
-        JAXBContext jaxbContext = mock(JAXBContext.class);
-        jaxbContextResolver.addJAXBContext(jaxbContext, Book.class);
-
-        jaxbContextResolver.removeJAXBContext(Book.class);
-        JAXBContext newJaxbContext = jaxbContextResolver.getJAXBContext(Book.class);
-        assertNotNull(newJaxbContext);
-        assertNotSame(jaxbContext, jaxbContextResolver.getJAXBContext(Book.class));
     }
 }

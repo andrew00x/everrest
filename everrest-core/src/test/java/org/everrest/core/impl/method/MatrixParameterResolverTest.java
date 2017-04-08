@@ -10,9 +10,10 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentMatcher;
@@ -21,11 +22,11 @@ import javax.ws.rs.MatrixParam;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.PathSegment;
+import java.lang.annotation.Annotation;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.argThat;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isNull;
@@ -60,11 +61,13 @@ public class MatrixParameterResolverTest {
         when(matrixParamAnnotation.value()).thenReturn("foo");
 
         parameter = mock(Parameter.class);
+        when(parameter.getGenericType()).thenReturn((Class)String.class);
+        when(parameter.getAnnotations()).thenReturn(new Annotation[0]);
         when(parameter.getParameterClass()).thenReturn((Class)String.class);
 
         typeProducer = mock(TypeProducer.class);
         TypeProducerFactory typeProducerFactory = mock(TypeProducerFactory.class);
-        when(typeProducerFactory.createTypeProducer(eq(String.class), any())).thenReturn(typeProducer);
+        when(typeProducerFactory.createTypeProducer(String.class, String.class, new Annotation[0])).thenReturn(typeProducer);
 
         matrixParameterResolver = new MatrixParameterResolver(matrixParamAnnotation, typeProducerFactory);
     }

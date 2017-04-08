@@ -11,17 +11,9 @@
 package org.everrest.core.impl;
 
 import com.google.common.collect.ImmutableMap;
-
-import org.everrest.core.Filter;
-import org.everrest.core.GenericContainerRequest;
-import org.everrest.core.GenericContainerResponse;
-import org.everrest.core.ObjectFactory;
-import org.everrest.core.RequestFilter;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.ResourceBinder;
-import org.everrest.core.ResponseFilter;
 import org.everrest.core.impl.provider.StringEntityProvider;
-import org.everrest.core.method.MethodInvokerFilter;
-import org.everrest.core.resource.GenericResourceMethod;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -36,9 +28,7 @@ import javax.ws.rs.ext.MessageBodyWriter;
 import javax.ws.rs.ext.Provider;
 
 import static com.google.common.collect.Sets.newHashSet;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -51,7 +41,7 @@ public class ApplicationPublisherTest {
     @Before
     public void setUp() throws Exception {
         resources = mock(ResourceBinder.class);
-        providers = mock(ProviderBinder.class);
+        providers = mock(DefaultProviderBinder.class);
 
         publisher = new ApplicationPublisher(resources, providers);
     }
@@ -88,7 +78,7 @@ public class ApplicationPublisherTest {
 
         publisher.publish(application);
 
-        verify(providers).addExceptionMapper(RuntimeExceptionMapper.class);
+        verify(providers).register(RuntimeExceptionMapper.class);
     }
 
     @Test
@@ -99,7 +89,7 @@ public class ApplicationPublisherTest {
 
         publisher.publish(application);
 
-        verify(providers).addExceptionMapper(exceptionMapper);
+        verify(providers).register(exceptionMapper);
     }
 
     @Provider
@@ -117,7 +107,7 @@ public class ApplicationPublisherTest {
 
         publisher.publish(application);
 
-        verify(providers).addContextResolver(ContextResolverText.class);
+        verify(providers).register(ContextResolverText.class);
     }
 
     @Test
@@ -128,7 +118,7 @@ public class ApplicationPublisherTest {
 
         publisher.publish(application);
 
-        verify(providers).addContextResolver(contextResolver);
+        verify(providers).register(contextResolver);
     }
 
     @Provider
@@ -146,7 +136,7 @@ public class ApplicationPublisherTest {
 
         publisher.publish(application);
 
-        verify(providers).addMessageBodyReader(StringEntityProvider.class);
+        verify(providers).register(StringEntityProvider.class);
     }
 
     @Test
@@ -157,7 +147,7 @@ public class ApplicationPublisherTest {
 
         publisher.publish(application);
 
-        verify(providers).addMessageBodyReader(messageBodyReader);
+        verify(providers).register(messageBodyReader);
     }
 
     @Test
@@ -167,7 +157,7 @@ public class ApplicationPublisherTest {
 
         publisher.publish(application);
 
-        verify(providers).addMessageBodyWriter(StringEntityProvider.class);
+        verify(providers).register(StringEntityProvider.class);
     }
 
     @Test
@@ -178,102 +168,18 @@ public class ApplicationPublisherTest {
 
         publisher.publish(application);
 
-        verify(providers).addMessageBodyWriter(messageBodyWriter);
+        verify(providers).register(messageBodyWriter);
     }
 
     @Test
-    public void publishesPerRequestMethodInvokerFilter() {
-        Application application = mock(Application.class);
-        when(application.getClasses()).thenReturn(newHashSet(AllMatchesMethodInvokerFilter.class));
-
-        publisher.publish(application);
-
-        verify(providers).addMethodInvokerFilter(AllMatchesMethodInvokerFilter.class);
-    }
-
-    @Test
-    public void publishesSingletonMethodInvokerFilter() {
-        MethodInvokerFilter methodInvokerFilter = new AllMatchesMethodInvokerFilter();
-        Application application = mock(Application.class);
-        when(application.getSingletons()).thenReturn(newHashSet(methodInvokerFilter));
-
-        publisher.publish(application);
-
-        verify(providers).addMethodInvokerFilter(methodInvokerFilter);
-    }
-
-    @Filter
-    public static class AllMatchesMethodInvokerFilter implements MethodInvokerFilter {
-        @Override
-        public void accept(GenericResourceMethod genericResourceMethod, Object[] params) {
-        }
-    }
-
-    @Test
-    public void publishesPerRequestRequestFilter() {
-        Application application = mock(Application.class);
-        when(application.getClasses()).thenReturn(newHashSet(AllMatchesRequestFilter.class));
-
-        publisher.publish(application);
-
-        verify(providers).addRequestFilter(AllMatchesRequestFilter.class);
-    }
-
-    @Test
-    public void publishesSingletonRequestFilter() {
-        RequestFilter requestFilter = new AllMatchesRequestFilter();
-        Application application = mock(Application.class);
-        when(application.getSingletons()).thenReturn(newHashSet(requestFilter));
-
-        publisher.publish(application);
-
-        verify(providers).addRequestFilter(requestFilter);
-    }
-
-    @Filter
-    public static class AllMatchesRequestFilter implements RequestFilter {
-        @Override
-        public void doFilter(GenericContainerRequest request) {
-        }
-    }
-
-    @Test
-    public void publishesPerResponseResponseFilter() {
-        Application application = mock(Application.class);
-        when(application.getClasses()).thenReturn(newHashSet(AllMatchesResponseFilter.class));
-
-        publisher.publish(application);
-
-        verify(providers).addResponseFilter(AllMatchesResponseFilter.class);
-    }
-
-    @Test
-    public void publishesSingletonResponseFilter() {
-        ResponseFilter responseFilter = new AllMatchesResponseFilter();
-        Application application = mock(Application.class);
-        when(application.getSingletons()).thenReturn(newHashSet(responseFilter));
-
-        publisher.publish(application);
-
-        verify(providers).addResponseFilter(responseFilter);
-    }
-
-    @Filter
-    public static class AllMatchesResponseFilter implements ResponseFilter {
-        @Override
-        public void doFilter(GenericContainerResponse response) {
-        }
-    }
-
-    @Test
-    public void publishesPerRequestResourceWithNewPathThroughEverrestApplication() {
+    public void publishesPerRequestResourceWithSpecifiedPathThroughEverrestApplication() {
         EverrestApplication application = mock(EverrestApplication.class);
         when(application.getClasses()).thenReturn(newHashSet(Resource.class));
         when(application.getResourceClasses()).thenReturn(ImmutableMap.of("/x", Resource.class));
 
         publisher.publish(application);
 
-        verify(resources, never()).addResource(Resource.class, null);
+        verify(resources).addResource(Resource.class, null);
         verify(resources).addResource("/x", Resource.class, null);
     }
 
@@ -288,115 +194,5 @@ public class ApplicationPublisherTest {
 
         verify(resources).addResource(resource, null);
         verify(resources).addResource("/x", resource, null);
-    }
-
-    @Test
-    public void publishesResourceWithFactoryAndOverridesPerRequestResourceThroughEverrestApplication() {
-        EverrestApplication application = mock(EverrestApplication.class);
-        ObjectFactory resourceFactory = mockObjectFactory(Resource.class);
-        when(application.getClasses()).thenReturn(newHashSet(Resource.class));
-        when(application.getFactories()).thenReturn(newHashSet(resourceFactory));
-
-        publisher.publish(application);
-
-        verify(resources, never()).addResource(Resource.class, null);
-        verify(resources).addResource(resourceFactory);
-    }
-
-    @Test
-    public void publishesExceptionMapperWithFactoryAndOverridesPerRequestExceptionMapperThroughEverrestApplication() {
-        EverrestApplication application = mock(EverrestApplication.class);
-        ObjectFactory exceptionMapperFactory = mockObjectFactory(RuntimeExceptionMapper.class);
-        when(application.getClasses()).thenReturn(newHashSet(RuntimeExceptionMapper.class));
-        when(application.getFactories()).thenReturn(newHashSet(exceptionMapperFactory));
-
-        publisher.publish(application);
-
-        verify(providers, never()).addExceptionMapper(RuntimeExceptionMapper.class);
-        verify(providers).addExceptionMapper(exceptionMapperFactory);
-    }
-
-    @Test
-    public void publishesContextResolverWithFactoryAndOverridesPerRequestContextResolverThroughEverrestApplication() {
-        EverrestApplication application = mock(EverrestApplication.class);
-        ObjectFactory contextResolverFactory = mockObjectFactory(ContextResolverText.class);
-        when(application.getClasses()).thenReturn(newHashSet(ContextResolverText.class));
-        when(application.getFactories()).thenReturn(newHashSet(contextResolverFactory));
-
-        publisher.publish(application);
-
-        verify(providers, never()).addContextResolver(ContextResolverText.class);
-        verify(providers).addContextResolver(contextResolverFactory);
-    }
-
-    @Test
-    public void publishesMessageBodyReaderWithFactoryAndOverridesPerRequestMessageBodyReaderThroughEverrestApplication() {
-        EverrestApplication application = mock(EverrestApplication.class);
-        ObjectFactory messageBodyReaderFactory = mockObjectFactory(StringEntityProvider.class);
-        when(application.getClasses()).thenReturn(newHashSet(StringEntityProvider.class));
-        when(application.getFactories()).thenReturn(newHashSet(messageBodyReaderFactory));
-
-        publisher.publish(application);
-
-        verify(providers, never()).addMessageBodyReader(StringEntityProvider.class);
-        verify(providers).addMessageBodyReader(messageBodyReaderFactory);
-    }
-
-    @Test
-    public void publishesMessageBodyWriterWithFactoryAndOverridesPerRequestMessageBodyWriterThroughEverrestApplication() {
-        EverrestApplication application = mock(EverrestApplication.class);
-        ObjectFactory messageBodyWriterFactory = mockObjectFactory(StringEntityProvider.class);
-        when(application.getClasses()).thenReturn(newHashSet(StringEntityProvider.class));
-        when(application.getFactories()).thenReturn(newHashSet(messageBodyWriterFactory));
-
-        publisher.publish(application);
-
-        verify(providers, never()).addMessageBodyWriter(StringEntityProvider.class);
-        verify(providers).addMessageBodyWriter(messageBodyWriterFactory);
-    }
-
-    @Test
-    public void publishesMethodInvokerFilterWithFactoryAndOverridesPerRequestMethodInvokerFilterThroughEverrestApplication() {
-        EverrestApplication application = mock(EverrestApplication.class);
-        ObjectFactory methodInvokerFilterFactory = mockObjectFactory(AllMatchesMethodInvokerFilter.class);
-        when(application.getClasses()).thenReturn(newHashSet(AllMatchesMethodInvokerFilter.class));
-        when(application.getFactories()).thenReturn(newHashSet(methodInvokerFilterFactory));
-
-        publisher.publish(application);
-
-        verify(providers, never()).addMethodInvokerFilter(AllMatchesMethodInvokerFilter.class);
-        verify(providers).addMethodInvokerFilter(methodInvokerFilterFactory);
-    }
-
-    @Test
-    public void publishesRequestFilterWithFactoryAndOverridesPerRequestRequestFilterThroughEverrestApplication() {
-        EverrestApplication application = mock(EverrestApplication.class);
-        ObjectFactory requestFilterFactory = mockObjectFactory(AllMatchesRequestFilter.class);
-        when(application.getClasses()).thenReturn(newHashSet(AllMatchesRequestFilter.class));
-        when(application.getFactories()).thenReturn(newHashSet(requestFilterFactory));
-
-        publisher.publish(application);
-
-        verify(providers, never()).addRequestFilter(AllMatchesRequestFilter.class);
-        verify(providers).addRequestFilter(requestFilterFactory);
-    }
-
-    @Test
-    public void publishesResponseFilterWithFactoryAndOverridesPerRequestResponseFilterThroughEverrestApplication() {
-        EverrestApplication application = mock(EverrestApplication.class);
-        ObjectFactory responseFilterFactory = mockObjectFactory(AllMatchesResponseFilter.class);
-        when(application.getClasses()).thenReturn(newHashSet(AllMatchesResponseFilter.class));
-        when(application.getFactories()).thenReturn(newHashSet(responseFilterFactory));
-
-        publisher.publish(application);
-
-        verify(providers, never()).addResponseFilter(AllMatchesResponseFilter.class);
-        verify(providers).addResponseFilter(responseFilterFactory);
-    }
-
-    private ObjectFactory mockObjectFactory(Class objectClass) {
-        ObjectFactory objectFactory = mock(ObjectFactory.class, RETURNS_DEEP_STUBS);
-        when(objectFactory.getObjectModel().getObjectClass()).thenReturn(objectClass);
-        return objectFactory;
     }
 }

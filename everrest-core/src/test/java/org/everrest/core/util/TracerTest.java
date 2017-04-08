@@ -10,9 +10,10 @@
  *******************************************************************************/
 package org.everrest.core.util;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.GenericContainerResponse;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.util.Tracer.TraceHolder;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -39,6 +40,11 @@ public class TracerTest {
         when(applicationContext.getAttributes().get("tracer")).thenReturn(new TraceHolder());
 
         ApplicationContext.setCurrent(applicationContext);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        ApplicationContext.setCurrent(null);
     }
 
     @Test
@@ -70,9 +76,9 @@ public class TracerTest {
         GenericContainerResponse containerResponse = mock(GenericContainerResponse.class, RETURNS_DEEP_STUBS);
         Tracer.addTraceHeaders(containerResponse);
 
-        InOrder inOrder = inOrder(containerResponse.getHttpHeaders());
-        inOrder.verify(containerResponse.getHttpHeaders()).add("EverRest-Trace-001", "foo");
-        inOrder.verify(containerResponse.getHttpHeaders()).add("EverRest-Trace-002", "bar");
+        InOrder inOrder = inOrder(containerResponse.getHeaders());
+        inOrder.verify(containerResponse.getHeaders()).add("EverRest-Trace-001", "foo");
+        inOrder.verify(containerResponse.getHeaders()).add("EverRest-Trace-002", "bar");
     }
 
     @Test
@@ -84,9 +90,9 @@ public class TracerTest {
         GenericContainerResponse containerResponse = mock(GenericContainerResponse.class, RETURNS_DEEP_STUBS);
         Tracer.addTraceHeaders(containerResponse);
 
-        InOrder inOrder = inOrder(containerResponse.getHttpHeaders());
-        inOrder.verify(containerResponse.getHttpHeaders()).add("EverRest-Trace-001", "foo 3");
-        inOrder.verify(containerResponse.getHttpHeaders()).add("EverRest-Trace-002", "bar 2");
+        InOrder inOrder = inOrder(containerResponse.getHeaders());
+        inOrder.verify(containerResponse.getHeaders()).add("EverRest-Trace-001", "foo 3");
+        inOrder.verify(containerResponse.getHeaders()).add("EverRest-Trace-002", "bar 2");
     }
 
     private void enableTracing() {

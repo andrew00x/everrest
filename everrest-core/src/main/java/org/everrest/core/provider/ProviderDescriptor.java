@@ -14,6 +14,7 @@ import org.everrest.core.ObjectModel;
 
 import javax.ws.rs.core.MediaType;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Descriptor of Provider. Provider is annotated with &#64;Provider and implement interface defined by JAX-RS.
@@ -36,4 +37,15 @@ public interface ProviderDescriptor extends ObjectModel {
      */
     List<MediaType> produces();
 
+    /**
+     * @return priority of component. Priority maybe specified on the registered
+     * JAX-RS components via {@code javax.annotation.Priority} annotation or directly
+     * with corresponding methods in {@code javax.ws.rs.core.Configurable}.
+     * If priority is not applicable to provider contract this method returns empty {@code Optional},
+     * however if priority is absent for component, for which a priority should be applied this method
+     * returns {@code Optional} with value {@link javax.ws.rs.Priorities#USER}
+     */
+    Optional<Integer> getPriority();
+
+    Class<?> getContract();
 }

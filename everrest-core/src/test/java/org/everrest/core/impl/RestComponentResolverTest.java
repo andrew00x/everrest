@@ -1,24 +1,13 @@
 package org.everrest.core.impl;
 
-import org.everrest.core.Filter;
-import org.everrest.core.GenericContainerRequest;
-import org.everrest.core.GenericContainerResponse;
-import org.everrest.core.RequestFilter;
+import org.everrest.core.ProviderBinder;
 import org.everrest.core.ResourceBinder;
-import org.everrest.core.ResponseFilter;
-import org.everrest.core.impl.provider.StringEntityProvider;
-import org.everrest.core.method.MethodInvokerFilter;
-import org.everrest.core.resource.GenericResourceMethod;
 import org.junit.Before;
 import org.junit.Test;
 
 import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.ExceptionMapper;
-import javax.ws.rs.ext.MessageBodyReader;
-import javax.ws.rs.ext.MessageBodyWriter;
 import javax.ws.rs.ext.Provider;
 
 import static org.mockito.Mockito.mock;
@@ -31,9 +20,9 @@ public class RestComponentResolverTest {
     private RestComponentResolver componentResolver;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         resources = mock(ResourceBinder.class);
-        providers = mock(ProviderBinder.class);
+        providers = mock(DefaultProviderBinder.class);
 
         componentResolver = new RestComponentResolver(resources, providers);
     }
@@ -56,16 +45,16 @@ public class RestComponentResolverTest {
     }
 
     @Test
-    public void resolvesPerRequestExceptionMapper() {
+    public void resolvesPerRequestProvider() {
         componentResolver.addPerRequest(RuntimeExceptionMapper.class);
-        verify(providers).addExceptionMapper(RuntimeExceptionMapper.class);
+        verify(providers).register(RuntimeExceptionMapper.class);
     }
 
     @Test
-    public void resolvesSingletonExceptionMapper() {
+    public void resolvesSingletonProvider() {
         ExceptionMapper exceptionMapper = new RuntimeExceptionMapper();
         componentResolver.addSingleton(exceptionMapper);
-        verify(providers).addExceptionMapper(exceptionMapper);
+        verify(providers).register(exceptionMapper);
     }
 
     @Provider
@@ -75,114 +64,4 @@ public class RestComponentResolverTest {
             return null;
         }
     }
-
-    @Test
-    public void resolvesPerRequestContextResolver() {
-        componentResolver.addPerRequest(ContextResolverText.class);
-        verify(providers).addContextResolver(ContextResolverText.class);
-    }
-
-    @Test
-    public void resolvesSingletonContextResolver() {
-        ContextResolver contextResolver = new ContextResolverText();
-        componentResolver.addSingleton(contextResolver);
-        verify(providers).addContextResolver(contextResolver);
-    }
-
-    @Provider
-    @Produces("text/plain")
-    public static class ContextResolverText implements ContextResolver<String> {
-        public String getContext(Class<?> type) {
-            return null;
-        }
-    }
-
-    @Test
-    public void resolvesPerRequestMessageBodyReader() {
-        componentResolver.addPerRequest(StringEntityProvider.class);
-        verify(providers).addMessageBodyReader(StringEntityProvider.class);
-    }
-
-    @Test
-    public void resolvesSingletonMessageBodyReader() {
-        MessageBodyReader<String> messageBodyReader = new StringEntityProvider();
-
-        componentResolver.addSingleton(messageBodyReader);
-
-        verify(providers).addMessageBodyReader(messageBodyReader);
-    }
-
-    @Test
-    public void resolvesPerRequestMessageBodyWriter() {
-        componentResolver.addPerRequest(StringEntityProvider.class);
-        verify(providers).addMessageBodyWriter(StringEntityProvider.class);
-    }
-
-    @Test
-    public void resolvesSingletonMessageBodyWriter() {
-        MessageBodyWriter<String> messageBodyWriter = new StringEntityProvider();
-        componentResolver.addSingleton(messageBodyWriter);
-        verify(providers).addMessageBodyWriter(messageBodyWriter);
-    }
-
-    @Test
-    public void resolvesPerRequestMethodInvokerFilter() {
-        componentResolver.addPerRequest(AllMatchesMethodInvokerFilter.class);
-        verify(providers).addMethodInvokerFilter(AllMatchesMethodInvokerFilter.class);
-    }
-
-    @Test
-    public void resolvesSingletonMethodInvokerFilter() {
-        MethodInvokerFilter methodInvokerFilter = new AllMatchesMethodInvokerFilter();
-        componentResolver.addSingleton(methodInvokerFilter);
-        verify(providers).addMethodInvokerFilter(methodInvokerFilter);
-    }
-
-    @Filter
-    public static class AllMatchesMethodInvokerFilter implements MethodInvokerFilter {
-        @Override
-        public void accept(GenericResourceMethod genericResourceMethod, Object[] params) {
-        }
-    }
-
-    @Test
-    public void resolvesPerRequestRequestFilter() {
-        componentResolver.addPerRequest(AllMatchesRequestFilter.class);
-        verify(providers).addRequestFilter(AllMatchesRequestFilter.class);
-    }
-
-    @Test
-    public void resolvesSingletonRequestFilter() {
-        RequestFilter requestFilter = new AllMatchesRequestFilter();
-        componentResolver.addSingleton(requestFilter);
-        verify(providers).addRequestFilter(requestFilter);
-    }
-
-    @Filter
-    public static class AllMatchesRequestFilter implements RequestFilter {
-        @Override
-        public void doFilter(GenericContainerRequest request) {
-        }
-    }
-
-    @Test
-    public void resolvesPerResponseResponseFilter() {
-        componentResolver.addPerRequest(AllMatchesResponseFilter.class);
-        verify(providers).addResponseFilter(AllMatchesResponseFilter.class);
-    }
-
-    @Test
-    public void resolvesSingletonResponseFilter() {
-        ResponseFilter responseFilter = new AllMatchesResponseFilter();
-        componentResolver.addSingleton(responseFilter);
-        verify(providers).addResponseFilter(responseFilter);
-    }
-
-    @Filter
-    public static class AllMatchesResponseFilter implements ResponseFilter {
-        @Override
-        public void doFilter(GenericContainerResponse response) {
-        }
-    }
-
 }

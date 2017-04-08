@@ -10,8 +10,8 @@
  *******************************************************************************/
 package org.everrest.websockets;
 
-import org.everrest.core.impl.EverrestConfiguration;
 import org.everrest.core.impl.EverrestProcessor;
+import org.everrest.core.impl.ServerConfigurationProperties;
 import org.everrest.core.impl.provider.json.JsonException;
 import org.everrest.core.tools.SimplePrincipal;
 import org.everrest.core.tools.SimpleSecurityContext;
@@ -55,24 +55,19 @@ import static javax.websocket.server.ServerEndpointConfig.Configurator;
 public class ServerContainerInitializeListener implements ServletContextListener {
     public static final String EVERREST_PROCESSOR_ATTRIBUTE = EverrestProcessor.class.getName();
     public static final String HTTP_SESSION_ATTRIBUTE       = HttpSession.class.getName();
-    public static final String EVERREST_CONFIG_ATTRIBUTE    = EverrestConfiguration.class.getName();
+    public static final String EVERREST_CONFIG_ATTRIBUTE    = ServerConfigurationProperties.class.getName();
     public static final String EXECUTOR_ATTRIBUTE           = "everrest.Executor";
-    public static final String SECURITY_CONTEXT             = SecurityContext.class.getName();
+    public static final String SECURITY_CONTEXT_ATTRIBUTE   = SecurityContext.class.getName();
 
     private static final AtomicLong sequence = new AtomicLong(1);
 
     private WebApplicationDeclaredRoles webApplicationDeclaredRoles;
-    private EverrestConfiguration       everrestConfiguration;
     private ServerEndpointConfig        serverEndpointConfig;
 
     @Override
     public final void contextInitialized(ServletContextEvent sce) {
         final ServletContext servletContext = sce.getServletContext();
         webApplicationDeclaredRoles = new WebApplicationDeclaredRoles(servletContext);
-        everrestConfiguration = (EverrestConfiguration)servletContext.getAttribute(EVERREST_CONFIG_ATTRIBUTE);
-        if (everrestConfiguration == null) {
-            everrestConfiguration = new EverrestConfiguration();
-        }
         final ServerContainer serverContainer = (ServerContainer)servletContext.getAttribute("javax.websocket.server.ServerContainer");
         try {
             serverEndpointConfig = createServerEndpointConfig(servletContext);
@@ -100,11 +95,14 @@ public class ServerContainerInitializeListener implements ServletContextListener
         final ServerEndpointConfig endpointConfig = create(WSConnectionImpl.class, "/ws")
                 .configurator(createConfigurator()).encoders(encoders).decoders(decoders).build();
         endpointConfig.getUserProperties().put(EVERREST_PROCESSOR_ATTRIBUTE, getEverrestProcessor(servletContext));
-        endpointConfig.getUserProperties().put(EVERREST_CONFIG_ATTRIBUTE, getEverrestConfiguration(servletContext));
+        ServerConfigurationProperties everrestConfiguration = getEverrestConfiguration(servletContext);
+        if (everrestConfiguration == null) {
+            everrestConfiguration = new ServerConfigurationProperties();
+        }
+        endpointConfig.getUserProperties().put(EVERREST_CONFIG_ATTRIBUTE, everrestConfiguration);
         endpointConfig.getUserProperties().put(EXECUTOR_ATTRIBUTE, createExecutor(servletContext));
         return endpointConfig;
     }
-
 
     private Configurator createConfigurator() {
         return new Configurator() {
@@ -116,7 +114,7 @@ public class ServerContainerInitializeListener implements ServletContextListener
                     sec.getUserProperties().put(HTTP_SESSION_ATTRIBUTE, httpSession);
                 }
                 final SecurityContext securityContext = createSecurityContext(request);
-                sec.getUserProperties().put(SECURITY_CONTEXT, securityContext);
+                sec.getUserProperties().put(SECURITY_CONTEXT_ATTRIBUTE, securityContext);
             }
         };
     }
@@ -125,13 +123,13 @@ public class ServerContainerInitializeListener implements ServletContextListener
         return (EverrestProcessor)servletContext.getAttribute(EVERREST_PROCESSOR_ATTRIBUTE);
     }
 
-    protected EverrestConfiguration getEverrestConfiguration(ServletContext servletContext) {
-        return everrestConfiguration;
+    protected ServerConfigurationProperties getEverrestConfiguration(ServletContext servletContext) {
+        return (ServerConfigurationProperties)servletContext.getAttribute(EVERREST_CONFIG_ATTRIBUTE);
     }
 
     protected ExecutorService createExecutor(ServletContext servletContext) {
-        final EverrestConfiguration everrestConfiguration = getEverrestConfiguration(servletContext);
-        return Executors.newFixedThreadPool(everrestConfiguration.getAsynchronousPoolSize(), new ThreadFactory() {
+        final ServerConfigurationProperties serverConfiguration = getEverrestConfiguration(servletContext);
+        return Executors.newFixedThreadPool(serverConfiguration.getAsynchronousPoolSize(), new ThreadFactory() {
             @Override
             public Thread newThread(Runnable r) {
                 final Thread t = new Thread(r, "everrest.WSConnection" + sequence.getAndIncrement());

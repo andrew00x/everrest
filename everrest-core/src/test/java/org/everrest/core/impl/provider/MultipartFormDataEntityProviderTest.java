@@ -11,9 +11,9 @@
 package org.everrest.core.impl.provider;
 
 import com.google.common.collect.Lists;
-
 import org.apache.commons.fileupload.FileItem;
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.impl.ApplicationContext;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -30,6 +30,8 @@ import java.lang.reflect.ParameterizedType;
 import java.util.Iterator;
 import java.util.List;
 
+import static org.everrest.core.impl.ServerConfigurationProperties.DEFAULT_MAX_BUFFER_SIZE;
+import static org.everrest.core.impl.ServerConfigurationProperties.EVERREST_MAX_BUFFER_SIZE;
 import static org.everrest.core.util.ParameterizedTypeImpl.newParameterizedType;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -48,10 +50,15 @@ public class MultipartFormDataEntityProviderTest {
         httpServletRequest = mock(HttpServletRequest.class);
 
         ApplicationContext context = mock(ApplicationContext.class, RETURNS_DEEP_STUBS);
-        when(context.getEverrestConfiguration().getMaxBufferSize()).thenReturn(100);
+        when(context.getConfigurationProperties().getIntegerProperty(EVERREST_MAX_BUFFER_SIZE, DEFAULT_MAX_BUFFER_SIZE)).thenReturn(100);
         ApplicationContext.setCurrent(context);
 
         formDataEntityProvider = new MultipartFormDataEntityProvider(httpServletRequest);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        ApplicationContext.setCurrent(null);
     }
 
     @Test

@@ -14,7 +14,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-
 import org.everrest.core.impl.provider.json.JsonUtils.Types;
 
 import java.lang.reflect.Array;
@@ -26,15 +25,12 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
@@ -51,6 +47,7 @@ import static org.everrest.core.impl.provider.json.JsonUtils.getFieldName;
 import static org.everrest.core.impl.provider.json.JsonUtils.getTransientFields;
 import static org.everrest.core.impl.provider.json.JsonUtils.getType;
 import static org.everrest.core.impl.provider.json.JsonUtils.isKnownType;
+import static org.everrest.core.util.ReflectionUtils.findAcceptableCollectionImplementation;
 
 /** @author andrew00x */
 public class ObjectBuilder {
@@ -176,11 +173,11 @@ public class ObjectBuilder {
                 elementClass = (Class)((ParameterizedType)elementType).getRawType();
             } else {
                 throw new JsonException(String.format(
-                        "This type of Collection can't be restored from JSON source.\nCollection is parameterized by wrong Type: %s",
+                        "This type of Collection can't be restored from JSON source.\nCollection is parametrized by wrong Type: %s",
                         parameterizedType));
             }
         } else {
-            throw new JsonException("Collection is not parameterized. Collection<?> is not supported");
+            throw new JsonException("Collection is not parametrized. Collection<?> is not supported");
         }
 
         Constructor<? extends T> constructor;
@@ -190,7 +187,7 @@ public class ObjectBuilder {
             constructor = getConstructor(collectionClass, Collection.class);
         }
 
-        ArrayList<Object> sourceCollection = new ArrayList<>(jsonArray.size());
+        List<Object> sourceCollection = new ArrayList<>(jsonArray.size());
         Iterator<JsonValue> values = jsonArray.getElements();
         Types jsonElementType = getType(elementClass);
         while (values.hasNext()) {
@@ -243,23 +240,6 @@ public class ObjectBuilder {
         }
     }
 
-    private static <T extends Collection<?>> Class findAcceptableCollectionImplementation(Class<T> collectionClass) throws JsonException {
-        Class impl = null;
-        if (collectionClass.isAssignableFrom(ArrayList.class)) {
-            impl = ArrayList.class.asSubclass(collectionClass);
-        } else if (collectionClass.isAssignableFrom(HashSet.class)) {
-            impl = HashSet.class.asSubclass(collectionClass);
-        } else if (collectionClass.isAssignableFrom(TreeSet.class)) {
-            impl = TreeSet.class.asSubclass(collectionClass);
-        } else if (collectionClass.isAssignableFrom(LinkedList.class)) {
-            impl = LinkedList.class.asSubclass(collectionClass);
-        }
-        if (impl == null) {
-            throw new JsonException(String.format("Can't find proper implementation for collection %s", collectionClass));
-        }
-        return impl;
-    }
-
     /**
      * Create instance of <code>mapClass</code> from JSON representation. If
      * <code>mapClass</code> is interface then appropriate implementation of
@@ -295,11 +275,11 @@ public class ObjectBuilder {
                 mapValueClass = (Class)((ParameterizedType)mapValueType).getRawType();
             } else {
                 throw new JsonException(
-                        String.format("This type of Map can't be restored from JSON source.\nMap is parameterized by wrong Type: %s",
+                        String.format("This type of Map can't be restored from JSON source.\nMap is parametrized by wrong Type: %s",
                                       parameterizedType));
             }
         } else {
-            throw new JsonException("Map is not parameterized. Map<Sting, ?> is not supported.");
+            throw new JsonException("Map is not parametrized. Map<Sting, ?> is not supported.");
         }
         Constructor<? extends T> constructor;
         if (mapClass.isInterface() || Modifier.isAbstract(mapClass.getModifiers())) {

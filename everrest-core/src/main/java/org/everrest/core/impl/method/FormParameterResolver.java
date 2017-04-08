@@ -10,9 +10,12 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.impl.MultivaluedMapImpl;
+import org.everrest.core.method.ParameterResolver;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 
 import javax.ws.rs.FormParam;
 import javax.ws.rs.core.MediaType;
@@ -30,19 +33,15 @@ public class FormParameterResolver implements ParameterResolver<FormParam> {
     private final FormParam           formParam;
     private final TypeProducerFactory typeProducerFactory;
 
-    /**
-     * @param formParam
-     *         FormParam
-     */
     FormParameterResolver(FormParam formParam, TypeProducerFactory typeProducerFactory) {
         this.formParam = formParam;
         this.typeProducerFactory = typeProducerFactory;
     }
 
     @Override
-    public Object resolve(org.everrest.core.Parameter parameter, ApplicationContext context) throws Exception {
-        String param = this.formParam.value();
-        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType());
+    public Object resolve(Parameter parameter, ApplicationContext context) throws Exception {
+        String param = formParam.value();
+        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType(), parameter.getAnnotations());
 
         MultivaluedMap<String, String> form = readForm(context, !parameter.isEncoded());
         return typeProducer.createValue(param, form, parameter.getDefaultValue());
@@ -53,11 +52,6 @@ public class FormParameterResolver implements ParameterResolver<FormParam> {
         MediaType contentType = context.getHttpHeaders().getMediaType();
         ParameterizedType multivaluedMapType = newParameterizedType(MultivaluedMap.class, String.class, String.class);
         MessageBodyReader reader = context.getProviders().getMessageBodyReader(MultivaluedMap.class, multivaluedMapType, null, contentType);
-        if (reader == null) {
-            throw new IllegalStateException(String.format("Can't find appropriate entity reader for entity type %s and content-type %s",
-                                                          MultivaluedMap.class.getName(), contentType));
-        }
-
         reader.readFrom(MultivaluedMap.class,
                         multivaluedMapType,
                         null,

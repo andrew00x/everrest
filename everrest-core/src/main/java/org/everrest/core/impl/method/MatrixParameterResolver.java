@@ -11,12 +11,15 @@
 package org.everrest.core.impl.method;
 
 import com.google.common.collect.Iterables;
-
-import org.everrest.core.ApplicationContext;
+import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
+import org.everrest.core.method.ParameterResolver;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 
 import javax.ws.rs.MatrixParam;
 import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.PathSegment;
 import java.util.List;
 
@@ -28,25 +31,19 @@ public class MatrixParameterResolver implements ParameterResolver<MatrixParam> {
     private final MatrixParam         matrixParam;
     private final TypeProducerFactory typeProducerFactory;
 
-    /**
-     * @param matrixParam
-     *         MatrixParam
-     */
     MatrixParameterResolver(MatrixParam matrixParam, TypeProducerFactory typeProducerFactory) {
         this.matrixParam = matrixParam;
         this.typeProducerFactory = typeProducerFactory;
     }
 
     @Override
-    public Object resolve(org.everrest.core.Parameter parameter, ApplicationContext context) throws Exception {
+    public Object resolve(Parameter parameter, ApplicationContext context) throws Exception {
         String param = matrixParam.value();
-        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType());
+        TypeProducer typeProducer = typeProducerFactory.createTypeProducer(parameter.getParameterClass(), parameter.getGenericType(), parameter.getAnnotations());
         List<PathSegment> pathSegments = context.getUriInfo().getPathSegments(!parameter.isEncoded());
 
         PathSegment pathSegment = Iterables.getLast(pathSegments, null);
-
-        return typeProducer.createValue(param,
-                                        pathSegment == null ? new MultivaluedHashMap<>() : pathSegment.getMatrixParameters(),
-                                        parameter.getDefaultValue());
+        MultivaluedMap<?, ?> params = pathSegment == null ? new MultivaluedHashMap<>() : pathSegment.getMatrixParameters();
+        return typeProducer.createValue(param, params, parameter.getDefaultValue());
     }
 }

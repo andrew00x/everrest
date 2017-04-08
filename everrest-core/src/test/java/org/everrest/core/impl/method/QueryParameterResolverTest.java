@@ -10,19 +10,19 @@
  *******************************************************************************/
 package org.everrest.core.impl.method;
 
-import org.everrest.core.ApplicationContext;
 import org.everrest.core.Parameter;
+import org.everrest.core.impl.ApplicationContext;
 import org.everrest.core.method.TypeProducer;
+import org.everrest.core.method.TypeProducerFactory;
 import org.junit.Before;
 import org.junit.Test;
 
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MultivaluedHashMap;
 import javax.ws.rs.core.MultivaluedMap;
+import java.lang.annotation.Annotation;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -50,10 +50,12 @@ public class QueryParameterResolverTest {
 
         parameter = mock(Parameter.class);
         when(parameter.getParameterClass()).thenReturn((Class)String.class);
+        when(parameter.getGenericType()).thenReturn((Class)String.class);
+        when(parameter.getAnnotations()).thenReturn(new Annotation[0]);
 
         typeProducer = mock(TypeProducer.class);
         TypeProducerFactory typeProducerFactory = mock(TypeProducerFactory.class);
-        when(typeProducerFactory.createTypeProducer(eq(String.class), any())).thenReturn(typeProducer);
+        when(typeProducerFactory.createTypeProducer(String.class, String.class, new Annotation[0])).thenReturn(typeProducer);
 
         queryParameterResolver = new QueryParameterResolver(queryParamAnnotation, typeProducerFactory);
     }

@@ -10,6 +10,9 @@
  *******************************************************************************/
 package org.everrest.websockets.message;
 
+import java.util.LinkedList;
+import java.util.List;
+
 /**
  * REST input message.
  *
@@ -17,30 +20,68 @@ package org.everrest.websockets.message;
  */
 public class RestInputMessage extends InputMessage {
     public static RestInputMessage newPingMessage(String uuid, String message) {
-        final RestInputMessage instance = new RestInputMessage();
-        instance.setUuid(uuid);
-        instance.setMethod("POST");
-        instance.setHeaders(new Pair[]{Pair.of("x-everrest-websocket-message-type", "ping")});
-        instance.setBody(message);
-        return instance;
+        return anInput()
+                .uuid(uuid)
+                .method("POST")
+                .addHeader(Pair.of("x-everrest-websocket-message-type", "ping"))
+                .body(message).build();
     }
 
     public static RestInputMessage newSubscribeChannelMessage(String uuid, String channel) {
-        final RestInputMessage instance = new RestInputMessage();
-        instance.setUuid(uuid);
-        instance.setMethod("POST");
-        instance.setHeaders(new Pair[]{Pair.of("x-everrest-websocket-message-type", "subscribe-channel")});
-        instance.setBody(String.format("{\"channel\":\"%s\"}", channel));
-        return instance;
+        return anInput()
+                .uuid(uuid)
+                .method("POST")
+                .addHeader(Pair.of("x-everrest-websocket-message-type", "subscribe-channel"))
+                .body(String.format("{\"channel\":\"%s\"}", channel)).build();
     }
 
     public static RestInputMessage newUnsubscribeChannelMessage(String uuid, String channel) {
-        final RestInputMessage instance = new RestInputMessage();
-        instance.setUuid(uuid);
-        instance.setMethod("POST");
-        instance.setHeaders(new Pair[]{Pair.of("x-everrest-websocket-message-type", "unsubscribe-channel")});
-        instance.setBody(String.format("{\"channel\":\"%s\"}", channel));
-        return instance;
+        return anInput()
+                .uuid(uuid)
+                .method("POST")
+                .addHeader(Pair.of("x-everrest-websocket-message-type", "unsubscribe-channel"))
+                .body(String.format("{\"channel\":\"%s\"}", channel)).build();
+    }
+
+    public static Builder anInput() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private String method;
+        private String path;
+        private String uuid;
+        private String body;
+        private List<Pair> headers = new LinkedList<>();
+
+        public Builder method(String method) {
+            this.method = method;
+            return this;
+        }
+
+        public Builder path(String path) {
+            this.path = path;
+            return this;
+        }
+
+        public Builder addHeader(Pair header) {
+            headers.add(header);
+            return this;
+        }
+
+        public Builder uuid(String uuid) {
+            this.uuid = uuid;
+            return this;
+        }
+
+        public Builder body(String body) {
+            this.body = body;
+            return this;
+        }
+
+        public RestInputMessage build() {
+            return new RestInputMessage(method, path, uuid, headers.toArray(new Pair[headers.size()]), body);
+        }
     }
 
     private String method;
@@ -48,6 +89,14 @@ public class RestInputMessage extends InputMessage {
     private Pair[] headers;
 
     public RestInputMessage() {
+    }
+
+    public RestInputMessage(String method, String path, String uuid, Pair[] headers, String body) {
+        this.method = method;
+        this.path = path;
+        this.headers = headers;
+        setUuid(uuid);
+        setBody(body);
     }
 
     /**

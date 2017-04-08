@@ -11,7 +11,7 @@
 package org.everrest.core.impl.uri;
 
 import com.google.common.base.Objects;
-
+import com.google.common.base.Splitter;
 import org.everrest.core.impl.header.HeaderParameterParser;
 
 import javax.ws.rs.core.Link;
@@ -19,11 +19,11 @@ import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriBuilderException;
 import java.net.URI;
 import java.text.ParseException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.everrest.core.impl.uri.UriComponent.normalize;
@@ -167,6 +167,8 @@ public class LinkBuilderImpl implements Link.Builder {
     }
 
     public static class LinkImpl extends Link {
+        static final Pattern whiteSpaces = Pattern.compile("\\s+");
+
         private URI                 uri;
         private Map<String, String> params;
 
@@ -196,7 +198,7 @@ public class LinkBuilderImpl implements Link.Builder {
             if (rel == null) {
                 return Collections.emptyList();
             }
-            return Arrays.asList(rel.split("\\s+"));
+            return Splitter.on(whiteSpaces).splitToList(rel);
         }
 
         @Override
