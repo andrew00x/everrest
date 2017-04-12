@@ -8,13 +8,13 @@
  * Contributors:
  * Codenvy, S.A. - initial API and implementation
  *******************************************************************************/
-package org.everrest.core.impl.integration;
+package org.everrest.guice;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import com.tngtech.java.junit.dataprovider.DataProvider;
 import com.tngtech.java.junit.dataprovider.DataProviderRunner;
 import com.tngtech.java.junit.dataprovider.UseDataProvider;
-import org.everrest.core.impl.BaseTest;
 import org.everrest.core.impl.ContainerResponse;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,16 +50,67 @@ import static org.junit.Assert.assertNotNull;
 
 @RunWith(DataProviderRunner.class)
 public class AnnotatedFieldsInjectionTest extends BaseTest {
+    @Override
+    protected List<Module> getModules() {
+        return newArrayList((Module) binder -> {
+            binder.bind(StringPathParamResource.class);
+            binder.bind(EncodedStringPathParamResource.class);
+            binder.bind(StringPathParamResource.class);
+            binder.bind(ListOfStringsPathParamResource.class);
+            binder.bind(SetOfStringsPathParamResource.class);
+            binder.bind(SortedSetOfStringsPathParamResource.class);
+            binder.bind(StringValueOfPathParamResource.class);
+            binder.bind(MultiplePathParamResource.class);
+            binder.bind(PrimitivePathParamResource.class);
+            binder.bind(StringQueryParamResource.class);
+            binder.bind(EncodedStringQueryParamResource.class);
+            binder.bind(StringQueryParamResource.class);
+            binder.bind(DefaultValueQueryParamResource.class);
+            binder.bind(ListOfStringsQueryParamResource.class);
+            binder.bind(SetOfStringsQueryParamResource.class);
+            binder.bind(SortedSetOfStringsQueryParamResource.class);
+            binder.bind(StringValueOfQueryParamResource.class);
+            binder.bind(MultipleQueryParamResource.class);
+            binder.bind(PrimitiveQueryParamResource.class);
+            binder.bind(StringMatrixParamResource.class);
+            binder.bind(EncodedStringMatrixParamResource.class);
+            binder.bind(StringMatrixParamResource.class);
+            binder.bind(DefaultValueMatrixParamResource.class);
+            binder.bind(ListOfStringsMatrixParamResource.class);
+            binder.bind(SetOfStringsMatrixParamResource.class);
+            binder.bind(SortedSetOfStringsMatrixParamResource.class);
+            binder.bind(StringValueOfMatrixParamResource.class);
+            binder.bind(MultipleMatrixParamResource.class);
+            binder.bind(PrimitiveMatrixParamResource.class);
+            binder.bind(CookieCookieParamResource.class);
+            binder.bind(StringCookieParamResource.class);
+            binder.bind(DefaultValueCookieParamResource.class);
+            binder.bind(ListOfStringsCookieParamResource.class);
+            binder.bind(SetOfStringsCookieParamResource.class);
+            binder.bind(SortedSetOfStringsCookieParamResource.class);
+            binder.bind(StringValueOfCookieParamResource.class);
+            binder.bind(MultipleCookieParamResource.class);
+            binder.bind(PrimitiveCookieParamResource.class);
+            binder.bind(StringHeaderParamResource.class);
+            binder.bind(DefaultValueHeaderParamResource.class);
+            binder.bind(ListOfStringsHeaderParamResource.class);
+            binder.bind(SetOfStringsHeaderParamResource.class);
+            binder.bind(SortedSetOfStringsHeaderParamResource.class);
+            binder.bind(StringValueOfHeaderParamResource.class);
+            binder.bind(MultipleHeaderParamResource.class);
+            binder.bind(PrimitiveHeaderParamResource.class);
+            binder.bind(RequestResource.class);
+            binder.bind(UriInfoResource.class);
+            binder.bind(HttpHeadersResource.class);
+            binder.bind(SecurityContextResource.class);
+            binder.bind(ProvidersResource.class);
+            binder.bind(ApplicationResource.class);
+        });
+    }
 
     @UseDataProvider("injectParametersTestData")
     @Test
-    public void injectsParameters(Class<?> resource, String path, Map<String, List<String>> requestHeaders, Object responseEntity) throws Exception {
-        processor.addApplication(new Application() {
-            @Override
-            public Set<Class<?>> getClasses() {
-                return newHashSet(resource);
-            }
-        });
+    public void injectsParameters(String path, Map<String, List<String>> requestHeaders, Object responseEntity) throws Exception {
         ContainerResponse response = launcher.service("POST", path, "", requestHeaders, null, null);
 
         assertEquals(responseEntity, response.getEntity());
@@ -68,67 +119,61 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
     @DataProvider
     public static Object[][] injectParametersTestData() {
         return new Object[][]{
-                {StringPathParamResource.class,             "/a/test/1",    null, "test"},
-                {EncodedStringPathParamResource.class,      "/a/te%20st/1", null, "te%20st"},
-                {StringPathParamResource.class,             "/a/te%20st/1", null, "te st"},
-                {ListOfStringsPathParamResource.class,      "/a/test/1",    null, newArrayList("test")},
-                {SetOfStringsPathParamResource.class,       "/a/test/1",    null, newHashSet("test")},
-                {SortedSetOfStringsPathParamResource.class, "/a/test/1",    null, newTreeSet(newArrayList("test"))},
-                {StringValueOfPathParamResource.class,      "/a/123/1",     null, 123},
-                {MultiplePathParamResource.class,           "/a/foo/1/bar", null, "foobar"},
-                {PrimitivePathParamResource.class,          "/a/123/1",     null, 123},
+                {"/a1/test/1",    null, "test"},
+                {"/a2/te%20st/1", null, "te%20st"},
+                {"/a1/te%20st/1", null, "te st"},
+                {"/a3/test/1",    null, newArrayList("test")},
+                {"/a4/test/1",    null, newHashSet("test")},
+                {"/a5/test/1",    null, newTreeSet(newArrayList("test"))},
+                {"/a6/123/1",     null, 123},
+                {"/a7/foo/1/bar", null, "foobar"},
+                {"/a8/123/1",     null, 123},
 
-                {StringQueryParamResource.class,             "/b/1?x=test",      null, "test"},
-                {EncodedStringQueryParamResource.class,      "/b/1?x=te%20st",   null, "te%20st"},
-                {StringQueryParamResource.class,             "/b/1?x=te%20st",   null, "te st"},
-                {DefaultValueQueryParamResource.class,       "/b/1",             null, "default"},
-                {ListOfStringsQueryParamResource.class,      "/b/1?x=foo&x=bar", null, newArrayList("foo", "bar")},
-                {SetOfStringsQueryParamResource.class,       "/b/1?x=foo&x=bar", null, newHashSet("foo", "bar")},
-                {SortedSetOfStringsQueryParamResource.class, "/b/1?x=foo&x=bar", null, newTreeSet(newArrayList("foo", "bar"))},
-                {StringValueOfQueryParamResource.class,      "/b/1?x=123",       null, 123},
-                {MultipleQueryParamResource.class,           "/b/1?x=foo&y=bar", null, "foobar"},
-                {PrimitiveQueryParamResource.class,          "/b/1?x=123",       null, 123},
+                {"/b1/1?x=test",      null, "test"},
+                {"/b2/1?x=te%20st",   null, "te%20st"},
+                {"/b1/1?x=te%20st",   null, "te st"},
+                {"/b3/1",             null, "default"},
+                {"/b4/1?x=foo&x=bar", null, newArrayList("foo", "bar")},
+                {"/b5/1?x=foo&x=bar", null, newHashSet("foo", "bar")},
+                {"/b6/1?x=foo&x=bar", null, newTreeSet(newArrayList("foo", "bar"))},
+                {"/b7/1?x=123",       null, 123},
+                {"/b8/1?x=foo&y=bar", null, "foobar"},
+                {"/b9/1?x=123",       null, 123},
 
-                {StringMatrixParamResource.class,             "/c/1;x=test",      null, "test"},
-                {EncodedStringMatrixParamResource.class,      "/c/1;x=te%20st",   null, "te%20st"},
-                {StringMatrixParamResource.class,             "/c/1;x=te%20st",   null, "te st"},
-                {DefaultValueMatrixParamResource.class,       "/c/1",             null, "default"},
-                {ListOfStringsMatrixParamResource.class,      "/c/1;x=foo;x=bar", null, newArrayList("foo", "bar")},
-                {SetOfStringsMatrixParamResource.class,       "/c/1;x=foo;x=bar", null, newHashSet("foo", "bar")},
-                {SortedSetOfStringsMatrixParamResource.class, "/c/1;x=foo;x=bar", null, newTreeSet(newArrayList("foo", "bar"))},
-                {StringValueOfMatrixParamResource.class,      "/c/1;x=123",       null, 123},
-                {MultipleMatrixParamResource.class,           "/c/1;x=foo;y=bar", null, "foobar"},
-                {PrimitiveMatrixParamResource.class,          "/c/1;x=123",       null, 123},
+                {"/c1/1;x=test",      null, "test"},
+                {"/c2/1;x=te%20st",   null, "te%20st"},
+                {"/c1/1;x=te%20st",   null, "te st"},
+                {"/c3/1",             null, "default"},
+                {"/c4/1;x=foo;x=bar", null, newArrayList("foo", "bar")},
+                {"/c5/1;x=foo;x=bar", null, newHashSet("foo", "bar")},
+                {"/c6/1;x=foo;x=bar", null, newTreeSet(newArrayList("foo", "bar"))},
+                {"/c7/1;x=123",       null, 123},
+                {"/c8/1;x=foo;y=bar", null, "foobar"},
+                {"/c9/1;x=123",       null, 123},
 
-                {CookieCookieParamResource.class,             "/d/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      new Cookie("x", "test")},
-                {StringCookieParamResource.class,             "/d/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      "test"},
-                {DefaultValueCookieParamResource.class,       "/d/1", null,                                                   "default"},
-                {ListOfStringsCookieParamResource.class,      "/d/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      newArrayList("test")},
-                {SetOfStringsCookieParamResource.class,       "/d/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      newHashSet("test")},
-                {SortedSetOfStringsCookieParamResource.class, "/d/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      newTreeSet(newArrayList("test"))},
-                {StringValueOfCookieParamResource.class,      "/d/1", ImmutableMap.of("Cookie", newArrayList("x=123")),       123},
-                {MultipleCookieParamResource.class,           "/d/1", ImmutableMap.of("Cookie", newArrayList("x=foo,y=bar")), "foobar"},
-                {PrimitiveCookieParamResource.class,          "/d/1", ImmutableMap.of("Cookie", newArrayList("x=123")),       123},
+                {"/d1/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      new Cookie("x", "test")},
+                {"/d2/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      "test"},
+                {"/d3/1", null,                                                   "default"},
+                {"/d4/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      newArrayList("test")},
+                {"/d5/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      newHashSet("test")},
+                {"/d6/1", ImmutableMap.of("Cookie", newArrayList("x=test")),      newTreeSet(newArrayList("test"))},
+                {"/d7/1", ImmutableMap.of("Cookie", newArrayList("x=123")),       123},
+                {"/d8/1", ImmutableMap.of("Cookie", newArrayList("x=foo,y=bar")), "foobar"},
+                {"/d9/1", ImmutableMap.of("Cookie", newArrayList("x=123")),       123},
 
-                {StringHeaderParamResource.class,             "/e/1", ImmutableMap.of("x", newArrayList("test")),                          "test"},
-                {DefaultValueHeaderParamResource.class,       "/e/1", null,                                                                "default"},
-                {ListOfStringsHeaderParamResource.class,      "/e/1", ImmutableMap.of("x", newArrayList("foo", "bar")),                    newArrayList("foo", "bar")},
-                {SetOfStringsHeaderParamResource.class,       "/e/1", ImmutableMap.of("x", newArrayList("foo", "bar")),                    newHashSet("foo", "bar")},
-                {SortedSetOfStringsHeaderParamResource.class, "/e/1", ImmutableMap.of("x", newArrayList("foo", "bar")),                    newTreeSet(newArrayList("foo", "bar"))},
-                {StringValueOfHeaderParamResource.class,      "/e/1", ImmutableMap.of("x", newArrayList("123")),                           123},
-                {MultipleHeaderParamResource.class,           "/e/1", ImmutableMap.of("x", newArrayList("foo"), "y", newArrayList("bar")), "foobar"},
-                {PrimitiveHeaderParamResource.class,          "/e/1", ImmutableMap.of("x", newArrayList("123")),                           123},
+                {"/e1/1", ImmutableMap.of("x", newArrayList("test")),                          "test"},
+                {"/e2/1", null,                                                                "default"},
+                {"/e3/1", ImmutableMap.of("x", newArrayList("foo", "bar")),                    newArrayList("foo", "bar")},
+                {"/e4/1", ImmutableMap.of("x", newArrayList("foo", "bar")),                    newHashSet("foo", "bar")},
+                {"/e5/1", ImmutableMap.of("x", newArrayList("foo", "bar")),                    newTreeSet(newArrayList("foo", "bar"))},
+                {"/e6/1", ImmutableMap.of("x", newArrayList("123")),                           123},
+                {"/e7/1", ImmutableMap.of("x", newArrayList("foo"), "y", newArrayList("bar")), "foobar"},
+                {"/e8/1", ImmutableMap.of("x", newArrayList("123")),                           123},
         };
     }
 
     @Test
     public void injectsUriInfo() throws Exception {
-        processor.addApplication(new Application() {
-            @Override
-            public Set<Class<?>> getClasses() {
-                return newHashSet(UriInfoResource.class);
-            }
-        });
         ContainerResponse response = launcher.service("POST", "/f/1", "", null, null, null);
 
         assertEquals(String.format("Expected %s injected", UriInfo.class), "UriInfo", response.getEntity());
@@ -136,12 +181,6 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
 
     @Test
     public void injectsRequest() throws Exception {
-        processor.addApplication(new Application() {
-            @Override
-            public Set<Class<?>> getClasses() {
-                return newHashSet(RequestResource.class);
-            }
-        });
         ContainerResponse response = launcher.service("POST", "/g/1", "", null, null, null);
 
         assertEquals(String.format("Expected %s injected", Request.class), "Request", response.getEntity());
@@ -149,12 +188,6 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
 
     @Test
     public void injectsHttpHeaders() throws Exception {
-        processor.addApplication(new Application() {
-            @Override
-            public Set<Class<?>> getClasses() {
-                return newHashSet(HttpHeadersResource.class);
-            }
-        });
         ContainerResponse response = launcher.service("POST", "/h/1", "", null, null, null);
 
         assertEquals(String.format("Expected %s injected", HttpHeaders.class), "HttpHeaders", response.getEntity());
@@ -162,12 +195,6 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
 
     @Test
     public void injectsSecurityContext() throws Exception {
-        processor.addApplication(new Application() {
-            @Override
-            public Set<Class<?>> getClasses() {
-                return newHashSet(SecurityContextResource.class);
-            }
-        });
         ContainerResponse response = launcher.service("POST", "/i/1", "", null, null, null);
 
         assertEquals(String.format("Expected %s injected", SecurityContext.class), "SecurityContext", response.getEntity());
@@ -175,12 +202,6 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
 
     @Test
     public void injectsProviders() throws Exception {
-        processor.addApplication(new Application() {
-            @Override
-            public Set<Class<?>> getClasses() {
-                return newHashSet(ProvidersResource.class);
-            }
-        });
         ContainerResponse response = launcher.service("POST", "/j/1", "", null, null, null);
 
         assertEquals(String.format("Expected %s injected", Providers.class), "Providers", response.getEntity());
@@ -188,19 +209,12 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
 
     @Test
     public void injectsApplication() throws Exception {
-        processor.addApplication(new Application() {
-            @Override
-            public Set<Class<?>> getClasses() {
-                return newHashSet(ApplicationResource.class);
-            }
-        });
         ContainerResponse response = launcher.service("POST", "/k/1", "", null, null, null);
 
         assertEquals(String.format("Expected %s injected", Application.class), "Application", response.getEntity());
     }
 
-
-    @Path("a/{x}")
+    @Path("a1/{x}")
     public static class StringPathParamResource {
         @PathParam("x")
         private String x;
@@ -212,7 +226,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("a/{x}")
+    @Path("a2/{x}")
     public static class EncodedStringPathParamResource {
         @PathParam("x")
         @Encoded
@@ -225,7 +239,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("a/{x}")
+    @Path("a3/{x}")
     public static class ListOfStringsPathParamResource {
         @PathParam("x")
         private List<String> x;
@@ -238,7 +252,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("a/{x}")
+    @Path("a4/{x}")
     public static class SetOfStringsPathParamResource {
         @PathParam("x")
         private Set<String> x;
@@ -251,7 +265,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("a/{x}")
+    @Path("a5/{x}")
     public static class SortedSetOfStringsPathParamResource {
         @PathParam("x")
         private SortedSet<String> x;
@@ -264,7 +278,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("a/{x}")
+    @Path("a6/{x}")
     public static class StringValueOfPathParamResource {
         @PathParam("x")
         private Integer x;
@@ -276,7 +290,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("a/{x}/1/{y}")
+    @Path("a7/{x}/1/{y}")
     public static class MultiplePathParamResource {
         @PathParam("x")
         private String x;
@@ -289,7 +303,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("a/{x}")
+    @Path("a8/{x}")
     public static class PrimitivePathParamResource {
         @PathParam("x")
         private int x;
@@ -302,7 +316,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
     }
 
 
-    @Path("b")
+    @Path("b1")
     public static class StringQueryParamResource {
         @QueryParam("x")
         private String x;
@@ -314,7 +328,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("b")
+    @Path("b2")
     public static class EncodedStringQueryParamResource {
         @QueryParam("x")
         @Encoded
@@ -327,7 +341,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("b")
+    @Path("b3")
     public static class DefaultValueQueryParamResource {
         @QueryParam("x")
         @DefaultValue("default")
@@ -340,7 +354,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("b")
+    @Path("b4")
     public static class ListOfStringsQueryParamResource {
         @QueryParam("x")
         private List<String> x;
@@ -353,7 +367,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("b")
+    @Path("b5")
     public static class SetOfStringsQueryParamResource {
         @QueryParam("x")
         private Set<String> x;
@@ -366,7 +380,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("b")
+    @Path("b6")
     public static class SortedSetOfStringsQueryParamResource {
         @QueryParam("x")
         private SortedSet<String> x;
@@ -379,7 +393,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("b")
+    @Path("b7")
     public static class StringValueOfQueryParamResource {
         @QueryParam("x")
         private Integer x;
@@ -391,7 +405,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("b")
+    @Path("b8")
     public static class MultipleQueryParamResource {
         @QueryParam("x")
         private String x;
@@ -405,7 +419,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("b")
+    @Path("b9")
     public static class PrimitiveQueryParamResource {
         @QueryParam("x")
         private int x;
@@ -418,7 +432,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
     }
 
 
-    @Path("c")
+    @Path("c1")
     public static class StringMatrixParamResource {
         @MatrixParam("x")
         private String x;
@@ -430,7 +444,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("c")
+    @Path("c2")
     public static class EncodedStringMatrixParamResource {
         @MatrixParam("x")
         @Encoded
@@ -443,7 +457,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("c")
+    @Path("c3")
     public static class DefaultValueMatrixParamResource {
         @MatrixParam("x")
         @DefaultValue("default")
@@ -456,7 +470,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("c")
+    @Path("c4")
     public static class ListOfStringsMatrixParamResource {
         @MatrixParam("x")
         private List<String> x;
@@ -469,7 +483,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("c")
+    @Path("c5")
     public static class SetOfStringsMatrixParamResource {
         @MatrixParam("x")
         private Set<String> x;
@@ -482,7 +496,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("c")
+    @Path("c6")
     public static class SortedSetOfStringsMatrixParamResource {
         @MatrixParam("x")
         private SortedSet<String> x;
@@ -495,7 +509,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("c")
+    @Path("c7")
     public static class StringValueOfMatrixParamResource {
         @MatrixParam("x")
         private Integer x;
@@ -507,7 +521,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("c")
+    @Path("c8")
     public static class MultipleMatrixParamResource {
         @MatrixParam("x")
         private String x;
@@ -521,7 +535,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("c")
+    @Path("c9")
     public static class PrimitiveMatrixParamResource {
         @MatrixParam("x")
         private int x;
@@ -534,7 +548,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
     }
 
 
-    @Path("d")
+    @Path("d1")
     public static class CookieCookieParamResource {
         @CookieParam("x")
         private Cookie x;
@@ -546,7 +560,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("d")
+    @Path("d2")
     public static class StringCookieParamResource {
         @CookieParam("x")
         private String x;
@@ -558,7 +572,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("d")
+    @Path("d3")
     public static class DefaultValueCookieParamResource {
         @CookieParam("x")
         @DefaultValue("default")
@@ -571,7 +585,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("d")
+    @Path("d4")
     public static class ListOfStringsCookieParamResource {
         @CookieParam("x")
         private List<String> x;
@@ -584,7 +598,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("d")
+    @Path("d5")
     public static class SetOfStringsCookieParamResource {
         @CookieParam("x")
         private Set<String> x;
@@ -597,7 +611,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("d")
+    @Path("d6")
     public static class SortedSetOfStringsCookieParamResource {
         @CookieParam("x")
         private SortedSet<String> x;
@@ -610,7 +624,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("d")
+    @Path("d7")
     public static class StringValueOfCookieParamResource {
         @CookieParam("x")
         private Integer x;
@@ -622,7 +636,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("d")
+    @Path("d8")
     public static class MultipleCookieParamResource {
         @CookieParam("x")
         private String x;
@@ -636,7 +650,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("d")
+    @Path("d9")
     public static class PrimitiveCookieParamResource {
         @CookieParam("x")
         private int x;
@@ -649,7 +663,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
     }
 
 
-    @Path("e")
+    @Path("e1")
     public static class StringHeaderParamResource {
         @HeaderParam("x")
         private String x;
@@ -661,7 +675,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("e")
+    @Path("e2")
     public static class DefaultValueHeaderParamResource {
         @HeaderParam("x")
         @DefaultValue("default")
@@ -674,7 +688,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("e")
+    @Path("e3")
     public static class ListOfStringsHeaderParamResource {
         @HeaderParam("x")
         private List<String> x;
@@ -687,7 +701,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("e")
+    @Path("e4")
     public static class SetOfStringsHeaderParamResource {
         @HeaderParam("x")
         private Set<String> x;
@@ -700,7 +714,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("e")
+    @Path("e5")
     public static class SortedSetOfStringsHeaderParamResource {
         @HeaderParam("x")
         private SortedSet<String> x;
@@ -713,7 +727,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("e")
+    @Path("e6")
     public static class StringValueOfHeaderParamResource {
         @HeaderParam("x")
         private Integer x;
@@ -725,7 +739,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("e")
+    @Path("e7")
     public static class MultipleHeaderParamResource {
         @HeaderParam("x")
         private String x;
@@ -739,7 +753,7 @@ public class AnnotatedFieldsInjectionTest extends BaseTest {
         }
     }
 
-    @Path("e")
+    @Path("e8")
     public static class PrimitiveHeaderParamResource {
         @HeaderParam("x")
         private int x;

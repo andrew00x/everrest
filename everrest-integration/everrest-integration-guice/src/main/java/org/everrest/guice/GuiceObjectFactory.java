@@ -11,12 +11,9 @@
 package org.everrest.guice;
 
 import com.google.inject.Provider;
-import org.everrest.core.FieldInjector;
 import org.everrest.core.ObjectFactory;
 import org.everrest.core.ObjectModel;
 import org.everrest.core.impl.ApplicationContext;
-
-import java.util.List;
 
 /**
  * @author andrew00x
@@ -33,12 +30,7 @@ public class GuiceObjectFactory<T extends ObjectModel> implements ObjectFactory<
 
     @Override
     public Object getInstance(ApplicationContext context) {
-        Object object = provider.get();
-        List<FieldInjector> fieldInjectors = model.getFieldInjectors();
-        fieldInjectors.stream()
-                .filter(injector -> injector.getAnnotation() != null)
-                .forEach(injector -> injector.inject(object, context));
-        return object;
+        return provider.get();
     }
 
     @Override
