@@ -53,7 +53,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.propagate;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static javax.ws.rs.core.HttpHeaders.ALLOW;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
@@ -92,9 +91,8 @@ public class RequestDispatcher {
         this.resourceBinder = requireNonNull(resourceBinder);
         this.uriPatternComparator = new UriPatternComparator();
         locatorDescriptorCache = CacheBuilder.newBuilder()
-                                             .concurrencyLevel(8)
-                                             .maximumSize(256)
-                                             .expireAfterAccess(10, MINUTES)
+                                             .concurrencyLevel(16)
+                                             .weakKeys()
                                              .build(new CacheLoader<Class<?>, ResourceDescriptor>() {
                                                  @Override
                                                  public ResourceDescriptor load(Class<?> aClass) {

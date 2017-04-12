@@ -29,8 +29,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
-
 /**
  * Implementation of LifecycleComponent.LifecycleMethodStrategy that uses {@link PostConstruct} and {@link PreDestroy}
  * annotation to find "initialize" and "destroy" methods.
@@ -91,8 +89,7 @@ public final class AnnotatedLifecycleMethodStrategy implements LifecycleMethodSt
     public AnnotatedLifecycleMethodStrategy() {
         initializeMethodsCache = CacheBuilder.newBuilder()
                                              .concurrencyLevel(8)
-                                             .maximumSize(256)
-                                             .expireAfterAccess(10, MINUTES)
+                                             .weakKeys()
                                              .build(new CacheLoader<Class<?>, Method[]>() {
                                                  @Override
                                                  public Method[] load(Class<?> aClass) {
@@ -101,8 +98,7 @@ public final class AnnotatedLifecycleMethodStrategy implements LifecycleMethodSt
                                              });
         destroyMethodsCache = CacheBuilder.newBuilder()
                                           .concurrencyLevel(8)
-                                          .maximumSize(256)
-                                          .expireAfterAccess(10, MINUTES)
+                                          .weakKeys()
                                           .build(new CacheLoader<Class<?>, Method[]>() {
                                               @Override
                                               public Method[] load(Class<?> aClass) {

@@ -28,7 +28,6 @@ import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.Sets.newHashSet;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.everrest.core.impl.provider.json.JsonUtils.Types.ARRAY_BOOLEAN;
 import static org.everrest.core.impl.provider.json.JsonUtils.Types.ARRAY_BYTE;
 import static org.everrest.core.impl.provider.json.JsonUtils.Types.ARRAY_CHAR;
@@ -49,8 +48,7 @@ public class JsonGenerator {
 
     private static LoadingCache<Class<?>, JsonMethod[]> methodsCache = CacheBuilder.newBuilder()
                                                                                    .concurrencyLevel(8)
-                                                                                   .maximumSize(256)
-                                                                                   .expireAfterAccess(10, MINUTES)
+                                                                                   .weakKeys()
                                                                                    .build(new CacheLoader<Class<?>, JsonMethod[]>() {
                                                                                        @Override
                                                                                        public JsonMethod[] load(Class<?> aClass)

@@ -22,8 +22,6 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import java.util.concurrent.ExecutionException;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
-
 /**
  * Provides cache for {@link JAXBContext}.
  *
@@ -37,9 +35,8 @@ public class JAXBContextResolver implements ContextResolver<JAXBContextResolver>
 
     public JAXBContextResolver() {
         jaxbContextsCache = CacheBuilder.newBuilder()
-                .concurrencyLevel(16)
-                .maximumSize(256)
-                .expireAfterAccess(60, MINUTES)
+                .concurrencyLevel(8)
+                .weakKeys()
                 .build(new CacheLoader<Class<?>, JAXBContext>() {
                     @Override
                     public JAXBContext load(Class<?> aClass) throws JAXBException {

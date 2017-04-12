@@ -37,7 +37,6 @@ import java.util.concurrent.ExecutionException;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.Sets.newHashSet;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.everrest.core.impl.provider.json.JsonUtils.Types.ARRAY_OBJECT;
 import static org.everrest.core.impl.provider.json.JsonUtils.Types.COLLECTION;
 import static org.everrest.core.impl.provider.json.JsonUtils.Types.ENUM;
@@ -55,8 +54,7 @@ public class ObjectBuilder {
 
     private static LoadingCache<Class<?>, JsonMethod[]> methodsCache = CacheBuilder.newBuilder()
                                                                                    .concurrencyLevel(8)
-                                                                                   .maximumSize(256)
-                                                                                   .expireAfterAccess(10, MINUTES)
+                                                                                   .weakKeys()
                                                                                    .build(new CacheLoader<Class<?>, JsonMethod[]>() {
                                                                                        @Override
                                                                                        public JsonMethod[] load(Class<?> aClass)
@@ -67,8 +65,7 @@ public class ObjectBuilder {
 
     private static Cache<Class<?>, Constructor<?>> constructorsCache = CacheBuilder.newBuilder()
                                                                                    .concurrencyLevel(8)
-                                                                                   .maximumSize(256)
-                                                                                   .expireAfterAccess(10, MINUTES)
+                                                                                   .weakKeys()
                                                                                    .build();
 
     private static JsonMethod[] getJsonMethods(Class<?> clazz) {

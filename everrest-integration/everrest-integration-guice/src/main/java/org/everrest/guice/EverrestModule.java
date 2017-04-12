@@ -87,6 +87,7 @@ public class EverrestModule extends AbstractModule {
 
     public EverrestModule() {
         fieldsCache = CacheBuilder.newBuilder()
+                .concurrencyLevel(16)
                 .weakKeys()
                 .build(new CacheLoader<Class<?>, List<FieldInjector>>() {
                     @Override
